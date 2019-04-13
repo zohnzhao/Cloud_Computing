@@ -1,5 +1,4 @@
-​	
-
+[TOC]
 
 
 # 1 Linux 学习入门（Centos7）
