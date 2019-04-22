@@ -295,13 +295,17 @@ chmod o-w 文件/目录 #o减少w权限
 | > >                                     | 追加至文件                                                   |
 | head                                    | 查看文件前几行，默认10行<br/>-n 显示前n行                    |
 | tail                                    | 查看文件后几行，默认10行<br>-n 显示后n行<br>-f 实时追踪文档的所有更新 |
-| ln -s 源文件/目录 软连接名              | 创建软连接                                                   |
+| ln -s 源文件/目录 软连接名              | 创建软连接，没有选项是硬连接                                 |
 | history                                 | 查看已经执行的命令历史                                       |
 | ！数字                                  | 执行对应数字的历史命令                                       |
 | tree                                    | 以树状图列出目录的内容                                       |
 | wc 用于计算字数                         | -c 显示Bytes数<br>-m 统计所有字符个数                        |
 
+### 软、硬连接
 
+软连接可以跨分区，源可以是目录
+
+硬连接不可以跨分区，源必须是文件
 
 ## 7.2 时间日期类
 
@@ -424,7 +428,7 @@ mount -a # 立刻执行自动挂载 可以检测配置文件是否写错
 
 ```shell
 /etc/yum.repos.d/*.repo #配置文件路径与后缀
-#格式
+# 格式
 [名字]
 name = 描述信息
 baseurl = url
@@ -435,11 +439,15 @@ gpgcheck = 0 or 1 # 0 不验证，1 验证
 ```shell
 yum  repolist # 更新缓存列表
 
-yum -y install 包名 #安装包，自动安装依赖包
+yum -y install 包名 # 安装包，自动安装依赖包
 
-yum clean all #清除所有缓存
+yum clean all # 清除所有缓存
 
-yum remove 包名 #依赖关系以下的都删除
+yum remove 包名 # 依赖关系以下的都删除
+
+createrepo "目录" # 生成yum仓库数据列表文件
+
+光盘挂载格式 iso9660
 ```
 
 
@@ -449,10 +457,10 @@ yum remove 包名 #依赖关系以下的都删除
 ```shell
 /etc/resolv.conf # 网关文件
 
-#网关文件内容
+# 网关文件内容
 nameserver xxx.xxx.xxx.xxx # xx为网关IP
 
-route -n #查看网关
+route -n # 查看网关
 ```
 
 
