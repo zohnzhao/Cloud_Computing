@@ -53,6 +53,38 @@ IP：目录 挂载点 nfs defaults,_netdev 0 0
 
 # 4 NTP 网络时间同步
 
+| 软件包 | chrony  |
+| ------ | ------- |
+| 服务名 | chronyd |
+| 端口   | 123/UDP |
+
+
+
+## 服务器
+
+服务器层级最大为15
+
+```shell
+yum -y install chrony
+
+# 修改配置文件
+cat /etc/chrony.conf
+.. ..
+server 0.centos.pool.ntp.org iburst        # server用户客户端指向上层NTP服务器
+allow 192.168.4.0/24                        # 允许那个IP或网络访问NTP
+#deny  192.168.4.1                        # 拒绝那个IP或网络访问NTP
+local stratum 10                            # 设置NTP服务器的层数量
+.. ..
+
+# 启动NTP服务
+systemctl  restart  chronyd
+systemctl  enable  chronyd
+```
+
+
+
+## 客户端
+
 | 软件包名 | chrony           |
 | -------- | ---------------- |
 | 服务名   | chronyd          |
@@ -2174,3 +2206,253 @@ svn revert tmp.mount            # 还原tmp.mount文件
 svn merge -r7:2    tuned.service    # 将文件从版本7还原到版本2
 ```
 
+
+
+## 使用dump指令备份版本库数据
+
+```shell
+svnadmin dump /var/svn/project > project.bak  # 备份
+ 
+制作nginx的RPM包svnadmin create /var/svn/project2               # 新建空仓库
+svnadmin load /var/svn/project2 < project.bak      # 还原
+```
+
+
+
+# 34 制作RPM包
+
+```shell
+# 制作nginxRPM包
+# 安装rpm-build软件
+yum -y install  rpm-build
+
+rpmbuild -ba x.spec               # 会报错，没有文件或目录 自动创建目录
+ls /root/rpmbuild                    # 自动生成的目录结构
+BUILD  BUILDROOT  RPMS  SOURCES  SPECS  SRPMS
+
+cp nginx-1.12.2.tar.gz /root/rpmbuild/SOURCES/ # 将源码软件复制到SOURCES目录
+
+# 创建并修改SPEC配置文件
+vim /root/rpmbuild/SPECS/nginx.spec  # .spec 自动生成格式
+Name:nginx        # 源码包名字，不能写错
+Version:1.12.2	 # 源码包版本号，不能写错
+Release:    10   # 第几次制作RPM包
+Summary: Nginx is a web server software.    # 简介，任意
+Group： # 属于哪个组包 yum groupinstall 组包名 # 安装组包
+License:GPL    # 协议，GPL 发布无限制
+URL:    www.test.com    
+Source0:nginx-1.12.2.tar.gz # 源码包全名，不能写错
+#BuildRequires:    
+#Requires:    # 提示依赖关系
+%description # 详细介绍信息
+nginx [engine x] is an HTTP and reverse proxy server.
+
+%post  #后跟脚本,自己添加
+useradd nginx                       # 非必需操作：安装后脚本(创建账户)
+
+%prep
+%setup –q                           # 自动解压源码包，并cd进入目录
+
+%build
+./configure --with-http_ssl_module  # 修改
+make %{?_smp_mflags}
+
+%install
+make install DESTDIR=%{buildroot}
+
+%files
+%doc
+
+/usr/local/nginx/*            # 对哪些文件与目录打包
+
+%changelog
+
+
+# 创建RPM包
+rpmbuild -ba /root/rpmbuild/SPECS/nginx.spec
+```
+
+
+
+# 35 VPN Virtual Private Network
+
+虚拟专用网络
+
+在公用网络上建立专用私有网络，<font color=red>进行加密通讯</font>
+
+多用于为集团公司的各地子公司建立连接
+
+可用软件：GRE，PPTP，L2TP+IPSec，SSL
+
+安全度，左到右越来越安全
+
+左到右越来越难
+
+
+
+## GRE
+
+windows不支持，linux默认支持GRE模块(不自动激活)，思科，华为设备默认支持,适合局域网
+
+只是封装数据，不加密数据。
+
+本案例要求搭建一个GRE VPN环境，并测试该VPN网络是否能够正常通讯，要求如下：
+
+- 启用内核模块ip_gre 
+- 创建一个虚拟VPN隧道(10.10.10.0/24) 
+- 实现两台主机点到点的隧道通讯 
+
+```shell
+# 激活ip_gre模块
+lsmod                            # 显示模块列表
+lsmod  | grep ip_gre             # 确定是否加载了gre模块
+modprobe  ip_gre                 # 加载模块ip_gre
+modinfo ip_gre                   # 查看模块信息
+rmmod ip_gre 					 # 关闭模块
+
+# 创建VPN隧道
+ip tunnel add tun0  mode gre remote 201.1.2.5 local 201.1.2.10
+# ip tunnel add创建隧道（隧道名称为tun0），ip tunnel help可以查看帮助
+# mode设置隧道使用gre模式
+# local后面跟本机的IP地址，remote后面是与其他主机建立隧道的对方IP地址
+
+# 启用该隧道
+ip link show                # 查看网卡信息
+ip link set tun0 up         # 设置UP
+ip link show
+
+# 为VPN配置隧道IP地址
+ip addr add 10.10.10.10/24 peer 10.10.10.5/24 dev tun0
+# 为隧道tun0设置本地IP地址（10.10.10.10.10/24）
+# 隧道对面的主机IP的隧道IP为10.10.10.5/24
+ip a s                      # 查看IP地址
+```
+
+
+
+## PPTP VPN
+
+PPTP 部分数据加密
+
+本案例要求搭建一个PPTP VPN环境，并测试该VPN网络是否能够正常通讯，要求如下:
+
+- 使用PPTP协议创建一个支持身份验证的隧道连接 
+
+- 使用MPPE对数据进行加密 
+
+- 为客户端分配192.168.3.0/24的地址池 
+
+- 客户端连接的用户名为jacob，密码为123456 
+
+```shell
+# 部署VPN服务器
+yum -y install pptpd-1.4.0-2.el7.x86_64.rpm
+
+# 修改配置文件
+vim /etc/pptpd.conf
+.. ..
+localip 201.1.2.5                                   # 服务器本地IP
+remoteip 192.168.3.1-50                             # 分配给客户端的IP池
+
+vim /etc/ppp/options.pptpd
+named pptpd											# 服务器标记（默认有）
+require-mppe-128                                    # 使用MPPE加密数据（默认有）
+ms-dns 8.8.8.8                                      # DNS服务器
+
+vim /etc/ppp/chap-secrets            # 修改账户配置文件
+jacob           *               123456      *
+# 用户名    服务器标记    密码    客户端
+
+# 启动pptpd
+systemctl start pptpd
+
+# 翻墙设置
+ iptables -t nat -A POSTROUTING -s 192.168.3.0/24 -j SNAT --to-source 201.1.2.5
+ 
+# 日志
+/var/log/message
+```
+
+  
+
+## L2TP+IPSec VPN
+
+L2TP 建立主机之间的VPN通道，压缩、验证
+
+IPSec 提供数据加密、数据校验、访问控制
+
+```shell
+# 部署IPSec服务
+yum -y install libreswan
+
+cat /etc/ipsec.conf                # 仅查看一下该主配置文件
+.. ..
+include /etc/ipsec.d/*.conf                    # 加载该目录下的所有配置文件
+
+vim /etc/ipsec.d/myipsec.conf            
+# 新建该文件，参考lnmp_soft/vpn/myipsec.conf    
+conn IDC-PSK-NAT
+    rightsubnet=vhost:%priv                        # 允许建立的VPN虚拟网络
+    also=IDC-PSK-noNAT
+conn IDC-PSK-noNAT
+    authby=secret                                    # 加密认证
+        ike=3des-sha1;modp1024                       # 算法
+        phase2alg=aes256-sha1;modp2048               # 算法
+    pfs=no
+    auto=add
+    keyingtries=3
+    rekey=no
+    ikelifetime=8h
+    keylife=3h
+    type=transport
+    left=201.1.2.10                                # 重要，服务器本机的外网IP
+    leftprotoport=17/1701
+    right=%any                                    # 允许任何客户端连接
+    rightprotoport=17/%any
+
+# 创建IPSec预定义共享密钥
+cat /etc/ipsec.secrets                # 仅查看，不要修改该文件
+include /etc/ipsec.d/*.secrets
+
+vim /etc/ipsec.d/mypass.secrets       # 新建该文件
+201.1.2.10   %any:    PSK    "randpass"       # randpass为预共享密钥 201.1.2.10是VPN服务器的IP
+
+# 启动IPSec服务
+systemctl start ipsec
+
+# 部署XL2TP服务
+yum -y install xl2tpd-1.3.8-2.el7.x86_64.rpm
+
+# 修改xl2tp配置文件（修改3个配置文件的内容）
+vim  /etc/xl2tpd/xl2tpd.conf                # 修改主配置文件
+[global]
+.. ..    
+[lns default]
+.. ..
+ip range = 192.168.3.128-192.168.3.254                    # 分配给客户端的IP池
+local ip = 201.1.2.10                                    # VPN服务器的IP地址
+
+vim /etc/ppp/options.xl2tpd            # 认证配置
+require-mschap-v2                                         # 取消注释一行，强制要求认证
+#crtscts                                               # 注释或删除该行
+#lock                                                # 注释或删除该行
+
+vim /etc/ppp/chap-secrets                    # 修改密码文件
+jacob   *       123456  *                # 账户名称   服务器标记   密码   客户端IP
+
+# 启动服务
+systemctl start xl2tpd
+```
+
+
+
+## linux 路由器功能
+
+```shell
+# 临时生效：
+echo "1" > /proc/sys/net/ipv4/ip_forward
+
+# 永久生效的话，需要修改/etc/sysctl.conf：
+net.ipv4.ip_forward = 1
+sysctl -p # 立即生效
+```
