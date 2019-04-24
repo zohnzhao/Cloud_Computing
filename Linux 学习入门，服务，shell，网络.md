@@ -39,13 +39,13 @@ setfacl -m g:组名:权限 文档  # 修改组的acl策略
 | 配置文件     | /etc/exports                   |
 
 ```shell
-showmount -e IP	#查看网络分享
-mount ip:目录 挂载点 #将网络文件系统临时挂载到本地
+showmount -e IP	# 查看网络分享
+mount ip:目录 挂载点 # 将网络文件系统临时挂载到本地
 
-#nfs配置文件格式
-"共享文件夹绝对路径" 客户机IP（ro/rw） #客户机IP 可以写成*
+# nfs配置文件格式
+"共享文件夹绝对路径" 客户机IP（ro/rw） # 客户机IP 可以写成*
 
-#nfs永久挂载
+# nfs永久挂载
 IP：目录 挂载点 nfs defaults,_netdev 0 0
 ```
 
@@ -60,7 +60,7 @@ IP：目录 挂载点 nfs defaults,_netdev 0 0
 | 端口     | 123/UDP          |
 
 ```shell
-#配置文件写法
+# 配置文件写法
 server IP iburst # iburst 快速同步
 
 systemctl restart chronyd # 重启chronyd服务
@@ -751,7 +751,7 @@ label  linux                                  # 菜单项标签
     menu  label  ^Install Red Hat Enterprise Linux 7 
     menu  default                              # 默认启动方式
     kernel  vmlinuz                   		   # 内核的位置
-    append  initrd=rhel7/initrd.img  ks=http：# IP/应答文件
+    append  initrd=rhel7/initrd.img  ks=http：//IP/应答文件
 ```
 
 ​	
@@ -764,7 +764,7 @@ label  linux                                  # 菜单项标签
 
 | 命令  | 选项                                                         |
 | ----- | ------------------------------------------------------------ |
-| rsync | -n # 测试同步过程，不做实际修改<br>-a # 归档模式<br/>-v # 显示详细操作信息<br/>-z：传输过程中启用压缩/解压(超过1G使用)<br/>--delete：删除目标文件夹内多余的文档 |
+| rsync | -n # 测试同步过程，不做实际修改<br>-a # 归档模式<br/>-v # 显示详细操作信息<br/>-z # 传输过程中启用压缩/解压(超过1G使用)<br/>--delete # 删除目标文件夹内多余的文档 |
 
 
 
@@ -945,7 +945,7 @@ bash "脚本文件" # 使用指定解释器运行脚本，会新开解释器进�
 stty -echo # 关闭终端显示
 stty echo # 打开终端显示
 export a=20 # 设置全句变量
-
+unset a # 取消变量
 `命令` $(命令) # 两个都是执行命令，获取返回值
 ```
 
@@ -1062,7 +1062,7 @@ fi
 ## case 流程控制
 
 ```shell
-case  变量  in
+case 变量  in
 模式1)
 	命令序列1 ;;
 模式2)
@@ -1090,9 +1090,9 @@ function  函数名 {
 	.. ..
 }
 
-#调用函数 函数名 位置参数1 位置参数2
+# 调用函数 函数名 位置参数1 位置参数2
 
-#生成1到100的两种方式
+# 生成1到100的两种方式
 {1..100}
 seq 100
 ```
@@ -1124,7 +1124,7 @@ echo ${变量名} | cut -b "起始位置"-"结束位置" # 起始位置从1开�
 
 ```shell
 ${"变量名"/old/new} # 只替换匹配的第一个
-${"变量名"# old/new} # 替换匹配的全部
+${"变量名"//old/new} # 替换匹配的全部
 ```
 
 字符串掐头
@@ -1271,7 +1271,7 @@ sed  '/^$/d' a.txt            # 删除所有空行
 sed 's/xml/XML/'  a.txt        # 将每行中第一个xml替换为XML
 sed 's/xml/XML/3' a.txt        # 将每行中的第3个xml替换为XML
 sed 's/xml/XML/g' a.txt        # 将所有的xml都替换为XML
-sed 's/xml# g'     a.txt       # 将所有的xml都删除（替换为空串）
+sed 's/xml//g'     a.txt       # 将所有的xml都删除（替换为空串）
 sed 's#/bin/bash#/sbin/sh#' a.txt  # 将/bin/bash替换为/sbin/sh
 sed '4,7s/^/#/'   a.txt        # 将第4~7行注释掉（行首加#号）
 sed 's/^#an/an/'  a.txt        # 解除以#an开头的行的注释（去除行首的#号）
@@ -1583,7 +1583,7 @@ vim /usr/local/nginx/conf/nginx.conf
 server {
         listen       80;
         server_name  localhost;
-        rewrite ^/ http:# www.zz.cn/;
+        rewrite ^/ http://www.zz.cn/;
         location / {
             root   html;
         	index  index.html index.htm;
@@ -1596,7 +1596,7 @@ vim /usr/local/nginx/conf/nginx.conf
 server {
         listen       80;
         server_name  localhost;
-        rewrite ^/(.*)$ http:# www.zz.cn/$1;
+        rewrite ^/(.*)$ http://www.zz.cn/$1;
         location / {
             root   html;
         	index  index.html index.htm;
@@ -1645,7 +1645,7 @@ server {
         server_name  localhost;
         location / {
 			# 通过proxy_pass将用户的请求转发给webserver集群
-            proxy_pass http:# webserver;
+            proxy_pass http:// webserver;
         }
 }
 ```
@@ -1713,7 +1713,7 @@ location /status {
 … …
 
 # 查看状态页面信息
-curl  http:# 192.168.4.5/status
+curl  http:// 192.168.4.5/status
 Active connections: 1 
 server accepts handled requests
  10 10 3 
@@ -1750,8 +1750,11 @@ vim /etc/security/limits.conf # 手动写入
     .. ..
 *               soft    nofile            100000
 *               hard    nofile            100000
-#该配置文件分4列，分别如下：
-#用户或组    硬限制或软限制    需要限制的项目   限制的值
+# 该配置文件分4列，分别如下：
+# 用户或组    硬限制或软限制    需要限制的项目   限制的值
+
+# 测试并发量
+ab -n 2000 -c 2000 http://192.168.4.5/
 ```
 
 
@@ -1889,7 +1892,7 @@ get name                        # 获取变量的值
 VALUE name 0 3                 # 输出结果
 plj
 END
-##提示：0表示不压缩，180为数据缓存时间，3为需要存储的数据字节数量。
+## 提示：0表示不压缩，180为数据缓存时间，3为需要存储的数据字节数量。
 add myname 0 180 10            # 新建，myname不存在则添加，存在则报错
 set myname 0 180 10            # 添加或替换变量
 replace myname 0 180 10        # 替换，如果myname不存在则报错
@@ -1921,7 +1924,7 @@ php_value[session.save_path] = /var/lib/php/session
 # 原始文件，默认定义Sessoin会话信息本地计算机（默认在/var/lib/php/session）
 修改后效果如下:
 php_value[session.save_handler] = memcache
-php_value[session.save_path] = "tcp:# 192.168.2.5:11211"
+php_value[session.save_path] = "tcp:// 192.168.2.5:11211"
 # 定义Session信息存储在公共的memcached服务器上，主机参数中为memcache（没有d）
 # 通过path参数定义公共的memcached服务器在哪（服务器的IP和端口）
 ```
@@ -1938,14 +1941,15 @@ php_value[session.save_path] = "tcp:# 192.168.2.5:11211"
 
 # 31 Tomcat
 
-| 软件环境   | openjdk                           |
-| ---------- | --------------------------------- |
-| 软件包     | tomcat                            |
-| 端口       | 8080                              |
-| 主配置文件 | /usr/local/tomcat/conf/server.xml |
-| Java SE    | 标准版                            |
-| Java EE    | 企业版                            |
-| Java ME    | 移动版                            |
+| 软件环境     | openjdk                            |
+| ------------ | ---------------------------------- |
+| 软件包       | tomcat                             |
+| 端口         | 8080                               |
+| 主配置文件   | /usr/local/tomcat/conf/server.xml  |
+| Java SE      | 标准版                             |
+| Java EE      | 企业版                             |
+| Java ME      | 移动版                             |
+| 支持Java网页 | tomcat、websphere、weblogic、Jboss |
 
 部署Tomcat服务器软件
 
@@ -1984,7 +1988,7 @@ cat /usr/local/tomcat/conf/server.xml
      <Engine name="Catalina" defaultHost="localhost"> # defaultHost 定义访问ip时 默认打开的Host
     <Host name="www.a.com" appBase="webapps/a" unpackWARS="true" autoDeploy="true"> # 每个Host是一个虚拟主机
     	<Context path="" docBase="base"/>
-    	<Context path="/test" docBase="/var/www/html/" /> # 当用户访问http:# www.a.com/test打开/var/www/html目录下的页面
+    	<Context path="/test" docBase="/var/www/html/" /> # 当用户访问http:// www.a.com/test打开/var/www/html目录下的页面
     </Host>
     <Host name="www.b.com" appBase="webapps/b" unpackWARS="true" autoDeploy="true">
 </Host>
@@ -2040,6 +2044,7 @@ keystoreFile="/usr/local/tomcat/keystore" keystorePass="123456" clientAuth="fals
 - 代理服务器可以将远程的Web服务器页面缓存在本地 
 - 远程Web服务器对客户端用户是透明的 
 - 利用缓存机制提高网站的响应速度 
+- Varnish支持将缓存数据存储在硬盘和内存
 
 ## 部署Varnish缓存服务器
 
@@ -2078,5 +2083,94 @@ varnishncsa                    # 访问日志
 varnishadm  
 varnish> ban req.url ~ .*
 # 清空缓存数据，支持正则表达式
+```
+
+
+
+# 33 Subversion 版本控制
+
+Subversion 允许数据恢复到早期版本，可以检查数据修改的历史，允许多人协作文档并跟踪所做的修改
+
+Subversion 通信方式：本地访问、SVN服务、web服务
+
+```shell
+# 安装Subversion服务
+yum -y install subversion
+
+# 创建版本库
+mkdir /var/svn/ # 内部放置本地仓库
+svnadmin create /var/svn/project # 创建一个仓库文件夹
+
+# 本地数据导入仓库
+svn import . file:///var/svn/project/ -m "Init Data" # -m 注释 数据库方式存储 . 代表当前目录
+ 
+# 修改配置文件 三个 必须顶头写
+# 第一个
+vim /var/svn/project/conf/svnserve.conf
+[general]
+### These options control access to the repository for unauthenticated
+### and authenticated users.  Valid values are "write", "read",
+### and "none".  The sample settings below are the defaults.
+anon-access = none
+# 19行，匿名无任何权限
+auth-access = write
+# 20行，有效账户可写
+password-db = passwd
+# 27行，密码文件
+authz-db = authz
+# 34行，ACL访问控制列表文件
+
+# 第二个
+vim /var/svn/project/conf/passwd 
+… …
+[users]
+harry = 123456 # 用户名和密码
+tom = 123456 # 用户名和密码
+
+# 第三个
+cat /var/svn/project/conf/authz
+[/test]
+tom = rw						   # 只有tom能读写/test的内容
+
+[/hello]
+harry = r						   # 只有harry能读/hello的内容
+
+[/]                                # 定义ACL访问控制
+harry = rw                         # 用户对项目根路径可读可写
+tom = rw
+* =								   # 其他人没有权限
+
+# 启动服务
+svnserve -d  -r /var/svn/project # -d 后台运行 -r 指定目录
+
+netstat -nutlp |grep svnserve
+tcp        0      0 0.0.0.0:3690    0.0.0.0:*    LISTEN      4043/svnserve  
+```
+
+客户端
+
+```shell
+# 安装Subversion服务
+yum -y install subversion
+svn --username harry --password 123456 co svn://192.168.2.100/ code        
+# 建立本地副本,从服务器192.168.2.100上co checkout 下载代码到本地code目录
+# 用户名harry,密码123456
+
+svn ci -m "modify user"        # ci commit 将本地修改的数据同步到服务器
+svn update                    # 将服务器上新的数据同步到本地
+svn info     svn://192.168.2.100    # 查看版本仓库基本信息
+svn log     svn://192.168.2.100     # 查看版本仓库的日志
+svn add test.sh                # 将新的文件或目录加入版本控制
+svn mkdir subdir                # 创建目录
+
+svn rm timers.target            # 使用svn删除本地文件
+svn ci -m "xxx"                # 提交svn删除文件操作
+
+svn diff                     # 查看所有文件的差异
+svn diff umount.target       # 仅查看某一个文件的差异
+svn cat svn://192.168.2.100/reboot.target    # 查看服务器文件的内容
+
+svn revert tmp.mount            # 还原tmp.mount文件
+svn merge -r7:2    tuned.service    # 将文件从版本7还原到版本2
 ```
 
