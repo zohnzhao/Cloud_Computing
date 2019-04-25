@@ -43,7 +43,8 @@ showmount -e IP	# 查看网络分享
 mount ip:目录 挂载点 # 将网络文件系统临时挂载到本地
 
 # nfs配置文件格式
-"共享文件夹绝对路径" 客户机IP（ro/rw） # 客户机IP 可以写成*
+"共享文件夹绝对路径" 客户机IP（ro/rw,no_root_squash） # 客户机IP 可以写成*
+# 来自NFS客户端的root用户会被自动降权为普通用户，若要保留其root权限，注意应添加no_root_squash控制参数
 
 # nfs永久挂载
 IP：目录 挂载点 nfs defaults,_netdev 0 0
@@ -298,6 +299,28 @@ setsebool "接口" on # 开启接口
 
 # 10 ISCSI
 
+## 存储技术分类
+
+SCSI 小型计算机系统接口 Smal Computer System Interface
+
+DAS直连式存储 Direct-Attached Storage
+
+​	不能实现数据与其他主机的共享
+
+​	占用服务器操作系统资源，如CPU、IO等
+
+​	数据梁越大，性能越差
+
+NAS网络技术存储 Network-Attached Storage
+
+​	一种专用数据存储服务器，与服务器分离，集中管理数据，用户通过TCP/IP协议访问,采用标准的NFS/HTTP/CIFS等
+
+SAN存储区域网络 Storage Area Network
+
+FC光纤通道
+
+## ISCSI
+
 共享一个<font color=red>未格式化</font>的分区或硬盘。服务端提供磁盘，客户端连接并本地使用。
 
 | 软件   | targetcli                                                    |
@@ -350,6 +373,49 @@ systemctl restart iscsi # 重启iscsi服务，连接iscsi磁盘，并可以使�
 systemctl enabled iscsi
 #修改配置文件 /var/lib/iscsi/nodes/磁盘组名/IP:端口/default
 node.conn[0].startup=automatic # 设置开机启动
+```
+
+
+
+## 部署Multipath多路径环境
+
+```shell
+ yum install -y device-mapper-multipath
+ # 生成配置文件
+ cd /usr/share/doc/device-mapper-multipath-0.4.9/
+ ls multipath.conf
+ cp multipath.conf  /etc/multipath.conf
+ 
+# 获取wwid
+# 登陆共享存储后，系统多了两块硬盘，这两块硬盘实际上是同一个存储设备。应用服务器使用哪个都可以，但是如果使用sdb时，sdb对应的链路出现故障，它不会自动切换到sda。
+# 为了能够实现系统自动选择使用哪条链路，需要将这两块磁盘绑定为一个名称。
+# 通过磁盘的wwid来判定哪些磁盘是相同的。
+# 取得一块磁盘wwid的方法如下
+/usr/lib/udev/scsi_id --whitelisted --device=/dev/sdb
+
+# 修改配置文件
+vim /etc/multipath.conf
+# 声明自动发现多路径
+defaults {
+    user_friendly_names yes
+    find_multipaths yes
+}
+
+# 在文件的最后加入多路径声明，如果哪个存储设备的wwid和第（3）步获取的wwid一样，那么，为其取一个别名，叫mpatha
+multipaths {
+	multipath {
+		wwid    "360014059e8ba68638854e9093f3ba3a0"
+		alias   mpatha
+	}
+}
+
+# 启用Multipath多路径
+systemctl start multipathd
+systemctl enable multipathd
+
+# 检查多路径设备文件
+# 如果多路径设置成功，那么将在/dev/mapper下面生成名为mpatha的设备文件
+ls /dev/mapper/
 ```
 
 
@@ -1936,6 +2002,17 @@ flush_all                        # 清空所有
 quit                            # 退出登录         
 ```
 
+| add       | 新建变量         |
+| --------- | ---------------- |
+| set       | 新建或替换变量   |
+| replace   | 替换变量         |
+| get       | 读取变量         |
+| append    | 向变量中追加数据 |
+| delete    | 删除变量         |
+| status    | 查看状态         |
+| flush_all | 清空所有         |
+
+
 
 ## LNMP+memcached
 
@@ -2121,6 +2198,8 @@ varnish> ban req.url ~ .*
 
 # 33 Subversion 版本控制
 
+自动管理一个文件的多个版本
+
 Subversion 允许数据恢复到早期版本，可以检查数据修改的历史，允许多人协作文档并跟踪所做的修改
 
 Subversion 通信方式：本地访问、SVN服务、web服务
@@ -2218,6 +2297,51 @@ svnadmin load /var/svn/project2 < project.bak      # 还原
 ```
 
 
+
+## 目前常用的版本控制工具git和svn，各有各的优缺点，该如何选择呢？
+
+SVN是Subversion的简称，目前是Apache项目底下的一个开放源代码的版本控制系统，它的设计目标就是取代CVS。
+
+SVN是集中式管理。
+
+优点
+
+- 集中式管理，管理方式在服务端配置好，客户端只需要同步提交即可，使用方便，操作简单，很容易就可以上手。
+- 在服务端统一控制好访问权限，利用代码的安全管理。
+- 所有的代码已服务端为准，代码一致性高。
+
+缺点
+
+- 所有操作都需要通过服务端进行同步，这会导致服务器性能要求比较高。如果服务器宕机了就无法提交代码了。
+- 分支管理不灵活，svn分支是一个完整的目录，且这个目录拥有完整的实际文件，这些操作都是在服务端进行同步的，不是本地化操作，如果要删除分之，也是需要将远程的分支进行删除，这会导致大家都得同步。
+- 需要联网。如果无法连接到SVN服务器，就无法提交自己的代码，更别说还原、对比等操作了。如果在内网还好，网速比较稳定，同步相对比较快，如果是通过外网同步，有可能就需要同步很久。
+
+
+
+git是Linus Trovalds大神的作品，是一个开放源码的版本控制软件。与SVN最大的区别，就是分布式的管理。
+
+优点
+
+- 分布式开发时，可以git clone克隆一个本地版本，然后在本地进行操作提交，本地可以完成一个完整的版本控制。在发布的时候，使用git push来推送到远程即可。
+- git分支的本质是一个指向提交快照的指针，速度快、灵活，分支之间可以任意切换。都可以在本地进行操作可以不同步到远程。
+- 冲突解决，多人开发很容易就会出现冲突，可以先pull远程到本地，然后在本地合并一下分支，解决好冲突，在push到远程即可。
+- 离线工作，如果git服务器出现问题，也可以在本地进行切换分支的操作，等联网后再提交、合并等操作。
+
+缺点
+
+- git没有严格的权限控制，一般是通过系统设置文件的读写权限来做权限控制。
+- 工作目录只能是整个目录，而svn可以单独checkout某个有权限的目录。
+- git上手可能没有svn那边顺手，需要经过学习一下。
+
+
+
+
+
+总结
+
+如果对访问控制、权限分配和代码安全性等要求比较高的，建议使用svn。
+
+如果是分布式，多人开发，版本迭代比较快的项目，建议使用git。
 
 # 34 制作RPM包
 
@@ -2444,7 +2568,13 @@ jacob   *       123456  *                # 账户名称   服务器标记   密�
 systemctl start xl2tpd
 ```
 
+分布式开发时，可以git clone克隆一个本地版本，然后在本地进行操作提交，本地可以完成一个完整的版本控制。在发布的时候，使用git push来推送到远程即可。
 
+git分支的本质是一个指向提交快照的指针，速度快、灵活，分支之间可以任意切换。都可以在本地进行操作可以不同步到远程。
+
+冲突解决，多人开发很容易就会出现冲突，可以先pull远程到本地，然后在本地合并一下分支，解决好冲突，在push到远程即可。
+
+离线工作，如果git服务器出现问题，也可以在本地进行切换分支的操作，等联网后再提交、合并等操作。
 
 ## linux 路由器功能
 
@@ -2456,3 +2586,42 @@ echo "1" > /proc/sys/net/ipv4/ip_forward
 net.ipv4.ip_forward = 1
 sysctl -p # 立即生效
 ```
+
+
+
+# 36 PSSH
+
+可以同时远程连接多个主机，可以批量操作
+
+格式：pssh  [ ]  执行命令
+
+<center>PSSH 选项</center>
+
+| -A     | 使用密码远程其他主机（默认使用密钥） |
+| ------ | ------------------------------------ |
+| -i     | 显示结果                             |
+| -H     | 需要连接的主机名                     |
+| -h     | 连接的主机列表文件                   |
+| -p     | 并发连接数                           |
+| -t     | 超时时间                             |
+| -o dir | 标准输出信息保存的目录               |
+| -e dir | 错误输出信息保存的目录               |
+| -x     | 传递参数给ssh                        |
+
+```shell
+pssh -i  -A -H  'host1 host2 host3' -x '-o StrictHostKeyChecking=no' echo hello
+
+ssh-keygen -N  ''   -f /root/.ssh/id_rsa     # 非交互生成密钥文件
+ssh-copy-id  IP
+
+# pscp.pssh提供并发拷贝文件功能
+# -r    递归拷贝目录
+# 其他选项基本与pssh一致
+ pscp.pssh -r -h host.txt   /etc   /tmp 
+ 
+ 
+# pslurp提供远程下载功能
+# 选项与pscp.pssh基本一致
+pslurp  -h host.txt  /etc/passwd  /pass # 将远程主机的/etc/passwd，拷贝到当前目录下，存放在对应IP下的pass文件中
+```
+
