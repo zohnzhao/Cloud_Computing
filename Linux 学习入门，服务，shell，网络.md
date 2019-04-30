@@ -303,7 +303,7 @@ setsebool "接口" on # 开启接口
 
 SCSI 小型计算机系统接口 Smal Computer System Interface
 
-DAS直连式存储 Direct-Attached Storage
+DAS 直连式存储 Direct-Attached Storage
 
 ​	不能实现数据与其他主机的共享
 
@@ -311,13 +311,13 @@ DAS直连式存储 Direct-Attached Storage
 
 ​	数据梁越大，性能越差
 
-NAS网络技术存储 Network-Attached Storage
+NAS 网络技术存储 Network-Attached Storage
 
 ​	一种专用数据存储服务器，与服务器分离，集中管理数据，用户通过TCP/IP协议访问,采用标准的NFS/HTTP/CIFS等
 
-SAN存储区域网络 Storage Area Network
+SAN 存储区域网络 Storage Area Network
 
-FC光纤通道
+FC 光纤通道
 
 ## ISCSI
 
@@ -416,6 +416,8 @@ systemctl enable multipathd
 # 检查多路径设备文件
 # 如果多路径设置成功，那么将在/dev/mapper下面生成名为mpatha的设备文件
 ls /dev/mapper/
+
+# 挂载使用 mpatha 盘
 ```
 
 
@@ -575,9 +577,11 @@ parted 分区工具，支持GPT分区模式，最多128个主分区，18EB空间
 自动改变硬盘文件系统，分区空间有误差
 
 ```shell
-mktable gpt # 指定分区模式
+mklable gpt # 指定分区模式
 mkpart # 文件系统只记录
 unit GB # 设置primt单位
+parted  /dev/vdb  mklabel  gpt
+parted  /dev/vdb  mkpart primary  1M  50%
 ```
 
 ```shell
@@ -2625,3 +2629,604 @@ ssh-copy-id  IP
 pslurp  -h host.txt  /etc/passwd  /pass # 将远程主机的/etc/passwd，拷贝到当前目录下，存放在对应IP下的pass文件中
 ```
 
+
+
+# 37 udev规则
+
+实现如下功能：
+
+- 处理设备命名 
+- 决定要创建哪些设备文件或链接 
+- 决定如何设置属性 
+- 决定触发哪些事件 
+
+udev默认规则存放在/etc/udev/rules.d目录下，通过修改此目录下的规则实现设备的命名、属性、链接文件等。
+
+| 选项               | 值                                 |
+| ------------------ | ---------------------------------- |
+| ==                 | 表示匹配                           |
+| ！=                | 表示不匹配                         |
+| =                  | 指定赋予的值                       |
+| +=                 | 添加新值                           |
+| :=                 | 指定值，不允许被替换               |
+| NAME=              | 定义设备名称                       |
+| SYMLINK+=          | 的定义设备的别名                   |
+| OWNER=             | 定义设备的所有者                   |
+| GROUP=             | 定义设备的所属组                   |
+| MODE=              | 定义设备的权限                     |
+| ACTION==           | 判断设备的操作动作（添加、删除等） |
+| KERNEL==“sd[a-z]1” | 判断设备的内核名称                 |
+| RUN+=“”            | 执行脚本                           |
+
+udev常用替代变量：
+
+- %k：内核所识别出来的设备名，如sdb1 
+- %n：设备的内核编号，如sda3中的3 
+- %p：设备路径，如/sys/block/sdb/sdb1 
+
+```shell
+# 加载USB设备的同时实时查看设备的相关属性，可以使用monitor指令。
+udevadm monitor --property
+
+# 如果设备已经加载则无法使用monitor查看相关属性。可以使用下面的命令查看设备路径等属性。
+udevadm info --query=path --name=/dev/sda
+# 利用路径单独查看某个磁盘分区的属性信息
+udevadm info --query=property --path=/block/sdada1
+
+# 编写udev规则文件
+vim  /etc/udev/rules.d/70-usb.rules
+ACTION=="add",ENV{ID_VENDOR}=="TOSHIBA",ENV{DEVTYPE}=="partition",ENV{ID_SERIAL_SHORT}=="60A44CB4665EEE4133500001",SYMLINK="usb%n",OWNER="root",GROUP="root",MODE="0644",RUN+="/usr/bin/systemctl start httpd"
+```
+
+
+
+# 38 集群-LVS
+
+## 集群
+
+一组通过网络互联的计算机组，核心技术是任务调度
+
+目的：
+
+- 提高性能
+
+- 降低成本
+
+- 提高可扩展性
+
+- 增强可靠性
+
+分类：
+
+- 高性能计算集群HPC：通过集群开发的并行应用程序，解决复杂的科学问题。
+- 负载均衡（LB）集群：客户端负载在计算机集群中尽可能平均分摊。
+- 高可用（HA）集群：避免单点故障，当一个系统发生故障时，可以快速迁移。
+
+主流集群 nginx、LVS、Haprxy
+
+性能：LVS > Haprxy > nginx
+
+功能：nginx > Haprxy > LVS
+
+协议：LVS 仅支持4层、不能正则，ngingx 支持4层与7层，Haprxy 支持4层与7层。
+
+
+
+## LVS
+
+镶嵌在内核上。
+
+组成：
+
+- 前端：负载均衡层，由一台或多台负载调度器构成
+- 中间：服务器群组层，一组实际运行服务的服务器
+- 底端：数据共享存储层
+
+Director Server 调度服务器
+
+Real Server 真实服务器
+
+VIP 虚拟IP地址，面对客户
+
+RIP 真实IP地址，集群使用
+
+DIP 调度器连接节点服务器的IP
+
+工作模式：
+
+VS/NAT
+
+- 通过网络地址转换实现的虚拟服务器
+- 大并访问时，调度器的性能成为瓶颈
+
+VS/DR
+
+- 直接使用路由器技术实现虚拟服务器
+- 节点服务器需要配置VIP，注意MAC地址广播
+
+VS/TUN
+
+- 通过隧道方式实现虚拟服务器
+
+
+
+LVS目前实现了10种调度算法，常用4种：
+
+轮询（Round Robin）
+
+加权轮询（Weighted Round Robin）
+
+最少连接（Least Connections）
+
+加权最少连接（Weighted Least Connections）
+
+IP_hash (sh)
+
+## ipvsadm 调用LVS
+
+| ipvsadm -A            | 添加集群                               |
+| --------------------- | -------------------------------------- |
+| ipvsadm -E            | 修改集群                               |
+| ipvsadm -C            | 删除集群                               |
+| ipvsadm -a            | 集群添加真实服务器                     |
+| ipvsadm -e            | 集群修改真实服务器                     |
+| ipvsadm -d            | 集群删除真实服务器                     |
+| ipvsadm -L            | 查看LVS规则表                          |
+| ipvsadm -Ln           | n 显示端口                             |
+| -s [rr\|wrr\|lc\|wlc] | 在指定集群算法                         |
+| -m                    | 使用NAT模式（所有流量走调度服务器）    |
+| -g                    | 使用DR模式（所有流量直接返回给客户端） |
+| -i                    | 使用Tunnel模式                         |
+
+```shell
+ipvsadm -A -t|u 192.168.4.5:80 -s [算法] # -t tcp -u udp
+ipvsadm -a -t|u 192.168.4.5:80 -r 192.168.2.100 [-g|i|m] [-w 权重] 
+ipvsadm -a -t 192.168.4.5:80 -r 192.168.2.100 -m -w 1
+# -g DR模式 -i 隧道模式 -m NAT模式 -r 指定后端服务器
+ipvsadm-save -n > /etc/sysconfig/ipvsadm # 永久保存所有规则，可以手动写
+
+# 开启linux路由转发
+echo 1 > /proc/sys/net/ipv4/ip_forward
+echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf # 修改配置文件，设置永久规则
+```
+
+
+
+## 部署LVS-NAT
+
+```shell
+# 开启linux路由转发
+# 创建集群服务器
+yum -y install ipvsadm
+ipvsadm -A -t 192.168.4.5:80 -s wrr
+
+# 添加真实服务器
+ipvsadm -a -t 192.168.4.5:80 -r 192.168.2.100 -w 1 -m
+ipvsadm -a -t 192.168.4.5:80 -r 192.168.2.200 -w 1 -m
+
+# 查看规则列表，并保存规则
+ipvsadm -Ln
+ipvsadm-save -n > /etc/sysconfig/ipvsadm
+```
+
+
+
+## 部署LVS-DR集群
+
+```shell
+# 为了防止冲突，VIP必须要配置在网卡的虚拟接口！！！虚拟网卡用户可以访问到。
+cd /etc/sysconfig/network-scripts/
+cp ifcfg-eth0{,:0}
+
+vim ifcfg-eth0
+TYPE=Ethernet
+BOOTPROTO=none
+NAME=eth0
+DEVICE=eth0
+ONBOOT=yes
+IPADDR=192.168.4.5
+PREFIX=24
+
+vim ifcfg-eth0:0
+TYPE=Ethernet
+BOOTPROTO=none
+DEFROUTE=yes
+NAME=eth0:0
+DEVICE=eth0:0
+ONBOOT=yes
+IPADDR=192.168.4.15
+PREFIX=24
+
+systemctl restart network
+ 
+# 给web1配置VIP地址,lo用于自身伪装。
+cd /etc/sysconfig/network-scripts/
+cp ifcfg-lo{,:0}
+vim ifcfg-lo:0
+DEVICE=lo
+linux查看日志： 
+# cd /var/log 
+# less secure 
+或者 
+# less messages 
+最近登录的日志： 
+# last :0
+IPADDR=192.168.4.15
+NETMASK=255.255.255.255 # 必须32位
+NETWORK=192.168.4.15
+BROADCAST=192.168.4.15
+ONBOOT=yes
+NAME=lo:0
+
+# 防止地址冲突的问题：
+# 这里因为web1也配置与代理一样的VIP地址，默认肯定会出现地址冲突；
+# sysctl.conf文件写入这下面四行的主要目的就是访问192.168.4.15的数据包，只有调度器会响应，其他主机都不做任何响应，这样防止地址冲突的问题。
+
+vim /etc/sysctl.conf
+#手动写入如下4行内容
+net.ipv4.conf.all.arp_ignore = 1
+net.ipv4.conf.lo.arp_ignore = 1
+net.ipv4.conf.lo.arp_announce = 2
+net.ipv4.conf.all.arp_announce = 2
+#当有arp广播问谁是192.168.4.15时，本机忽略该ARP广播，不做任何回应
+#本机不要向外宣告自己的lo回环地址是192.168.4.15
+
+sysctl -p # 配置立即生效
+```
+
+
+
+# 39 Keepalived
+
+自动配置LVS，用于监控LVS集群，防止单点故障。照抄路由器VRRP功能（VRRP 热备份）
+
+配优先级，VIP
+
+## Keepalived高可用服务器
+
+```shell
+# 安装Keepalived
+yum install -y keepalived
+# 配置文件
+vim /etc/keepalived/keepalived.conf
+global_defs {
+  notification_email {
+    admin@zz.com.cn                # 设置报警收件人邮箱
+  }
+  notification_email_from ka@localhost    # 设置发件人
+  smtp_server 127.0.0.1                # 定义邮件服务器
+  smtp_connect_timeout 30
+  router_id  web1                        # 设置路由ID号（实验需要修改）
+}
+vrrp_instance VI_1 {
+  state MASTER                         # 主服务器为MASTER（备服务器需要修改为BACKUP）
+  interface eth0                    # 定义网络接口,不会配置在主接口上
+  virtual_router_id 50                # 主备服务器VRID号必须一致
+  priority 100                     # 服务器优先级,优先级高优先获取VIP（实验需要修改）
+  advert_int 1                     # 间隔确认时间
+  authentication {
+    auth_type pass
+    auth_pass 1111                       # 主备服务器密码必须一致
+  }
+  virtual_ipaddress {        # 谁是主服务器谁获得该VIP（实验需要修改
+        192.168.200.16
+        192.168.200.17
+        192.168.200.18
+   }     
+}
+# 启动keepalived会自动添加一个drop的防火墙规则，需要清空！
+ iptables -F # 清空防火墙规则
+
+# 启动服务
+systemctl start keepalived
+
+# 查看ip 
+ip a s eth0
+```
+
+
+
+## Keepalived+LVS服务器
+
+```shell
+vim /etc/keepalived/keepalived.conf
+global_defs {
+  notification_email {
+    admin@tarena.com.cn                # 设置报警收件人邮箱
+  }
+  notification_email_from ka@localhost    # 设置发件人
+  smtp_server 127.0.0.1                # 定义邮件服务器
+  smtp_connect_timeout 30
+  router_id  lvs1                       # 设置路由ID号(实验需要修改)
+}
+vrrp_instance VI_1 {
+  state MASTER                            # 主服务器为MASTER
+  interface eth0                        # 定义网络接口
+  virtual_router_id 50                    # 主辅VRID号必须一致
+  priority 100                         # 服务器优先级
+  advert_int 1
+  authentication {
+    auth_type pass
+    auth_pass 1111                      # 主辅服务器密码必须一致
+  }
+  virtual_ipaddress {  # 配置VIP（实验需要修改）
+  	192.168.4.15  
+  }   
+}
+
+virtual_server 192.168.4.15 80 {           # 设置ipvsadm的VIP规则（实验需要修改）
+  delay_loop 6
+  lb_algo wrr                          # 设置LVS调度算法为WRR
+  lb_kind DR                              # 设置LVS的模式为DR
+  #persistence_timeout 50    
+  #注意以上这条的作用是保持连接，开启后，客户端在一定时间内始终访问相同服务器
+  
+  protocol TCP
+  real_server 192.168.4.100 80 {         # 设置后端web服务器真实IP（实验需要修改）
+    weight 1                            # 设置权重为1
+    TCP_CHECK {                           # 对后台real_server做健康检查
+    connect_timeout 3	
+    nb_get_retry 3   # 连接失败 重试3次
+    delay_before_retry 3   # 每隔3秒 检查一次
+    }
+  }
+ real_server 192.168.4.200 80 {       # 设置后端web服务器真实IP（实验需要修改）
+    weight 2                           # 设置权重为2
+    TCP_CHECK {
+    connect_timeout 3
+    nb_get_retry 3
+    delay_before_retry 3
+    }
+  }
+  real_server 192.168.200.2 1358 { # 另一种检查方式
+        weight 1
+        HTTP_GET {
+            url {
+              path /testurl/test.jsp
+              digest 640205b7b0fc66c1ea91c463fac6334d # md5
+            }
+            url {
+              path /testurl2/test.jsp
+              digest 640205b7b0fc66c1ea91c463fac6334d
+            }
+            connect_timeout 3
+            nb_get_retry 3
+            delay_before_retry 3
+        }
+    }
+}
+systemctl start keepalived
+ipvsadm -Ln                     # 查看LVS规则
+ip a  s                          # 查看VIP配置
+```
+
+
+
+# 40 HAProxy负载平衡集群
+
+```shell
+# 部署HAProxy服务器
+yum -y install haproxy
+
+vim /etc/haproxy/haproxy.cfg
+global
+ log 127.0.0.1 local2   ###[err warning info debug]
+ chroot /usr/local/haproxy
+ pidfile /var/run/haproxy.pid ###haproxy的pid存放路径
+ maxconn 40000     ###全部集群最大连接数，默认4000
+ user haproxy
+ group haproxy
+ daemon       ###创建1个进程进入deamon模式（后台）运行
+defaults
+ mode http    ###默认的模式mode { tcp|http|health } 
+ log global   ###采用全局定义的日志
+ option dontlognull  ###不记录健康检查的日志信息
+ option httpclose  ###每次请求完毕后主动关闭http通道
+ option httplog   ###日志类别http日志格式
+ option forwardfor  ###后端服务器可以从Http Header中获得客户端ip
+ option redispatch  ###web服务器挂掉后强制定向到其他健康服务器
+ timeout connect 10000 #如果backend没有指定，默认为10s
+ timeout client 300000 ###客户端连接超时
+ timeout server 300000 ###服务器连接超时
+ maxconn  6000  ### 集群默认最大连接数
+ retries  3   ###3次连接失败就认为服务不可用，也可以通过后面设置
+ # 以下集群，可以用案例的格式
+listen stats # stats 集群名
+    bind 0.0.0.0:1080   #监听端口
+    stats refresh 30s   #统计页面自动刷新时间
+    stats uri /stats   #统计页面url
+    stats realm Haproxy Manager #统计页面密码框上提示文本
+    stats auth admin:admin  #统计页面用户名和密码设置
+  #stats hide-version   #隐藏统计页面上HAProxy的版本信息
+listen  websrv-rewrite 0.0.0.0:80 # websrv-rewrite 集群名
+   balance roundrobin # rr = roundrobin
+   server  web1 192.168.2.100:80 check inter 2000 rise 2 fall 5 
+   # check inter 检查 毫秒 rise 成功次数 fall 失败次数
+   server  web2 192.168.2.200:80 check inter 2000 rise 2 fall 5
+   
+systemctl start haproxy
+
+# /etc/haproxy/configure	帮助文档
+
+```
+
+
+
+# 41 ceph
+
+分布式文件系统：Distributed File System 文件系统管理的物理存储资源不一定直接连接在本地节点上，而是通过计算机网络与节点相连，基于B/S模式
+
+常用分布式文件系统：Lustre Hadoop FastDFS Ceph GlusterFS
+
+ceph 默认3个副本。提供对象存储，块存储，文件系统存储
+
+每个node 需要一个固态盘，两个普通盘。固态盘分为两份，分别作为两个普通盘的缓存。
+
+<font color=red>ceph只能做一个文件系统共享</font>
+
+| 存储软件包（至少三台） | OSDs Object Storage Device，它的主要功能是存储数据、复制数据、平衡数据、恢复数据等，与其它OSD间进行心跳检查等 |
+| ---------------------- | ------------------------------------------------------------ |
+| 调度（至少三台）       | Monitors 监视器，负责监视Ceph集群，维护Ceph集群的健康状态，同时维护着Ceph集群中的各种Map图 |
+| 文件系统服务支持       | MDSs Ceph MetaData Server，做文件系统。主要保存的文件系统服务的元数据，但对象存储和块存储设备是不需要使用该服务的。 |
+| 对象存储               | raddosgw                                                     |
+| 客户端                 | Ceph-coomon                                                  |
+
+```shell
+# 部署软件 需要执行的主机对其他主机有ssh的权限
+yum -y install ceph-deploy
+# 部署Ceph集群
+mkdir ceph-cluster # ceph-deploy 必须在此目录中
+cd ceph-cluster/
+ceph-deploy new node1 node2 node3 # 创建三个节点 /etc/hosts 配置node对应的ip
+ceph-deploy install node1 node2 node3 # 给所有节点安装软件包,节点已经配置好yum
+ceph-deploy mon create-initial # 初始化所有节点的mon服务
+
+ceph  -s # 查看集群状态
+
+# 三个节点 创建OSD
+parted  /dev/vdb  mklabel  gpt # 指定分区模式
+parted  /dev/vdb  mkpart primary  1M  50% # 1M 到50% 一个区
+parted  /dev/vdb  mkpart primary  50%  100% # 50% 到100% 一个区
+chown  ceph.ceph  /dev/vdb1 # 临时设置
+chown  ceph.ceph  /dev/vdb2
+
+vim /etc/udev/rules.d/70-vdb.rules # 永久设置
+ENV{DEVNAME}=="/dev/vdb1",OWNER="ceph",GROUP="ceph"
+ENV{DEVNAME}=="/dev/vdb2",OWNER="ceph",GROUP="ceph"
+
+# 初始化清空磁盘数据（仅在node1操作即可）
+ceph-deploy disk  zap  node1:vdc   node1:vdd
+ceph-deploy disk  zap  node2:vdc   node2:vdd
+ceph-deploy disk  zap  node3:vdc   node3:vdd
+# 创建OSD存储空间（仅在node1操作即可）
+ceph-deploy osd create node1:vdc:/dev/vdb1 node1:vdd:/dev/vdb2  
+# 创建osd存储设备，vdc为集群提供存储空间，vdb1提供JOURNAL缓存，
+# 一个存储设备对应一个缓存设备，缓存需要SSD，不需要很大
+ceph-deploy osd create node2:vdc:/dev/vdb1 node2:vdd:/dev/vdb2
+ceph-deploy osd create node3:vdc:/dev/vdb1 node3:vdd:/dev/vdb2
+```
+
+## 创建Ceph块存储
+
+块共享：需要挂载磁盘，分区，格式化
+
+多个存储池，每个存储池多个镜像，镜像提供空间
+
+```shell
+# 查看存储池
+ceph osd lspools # 默认有rbd 存储池
+
+rbd create demo-image --image-feature  layering --size 10G # 创建镜像demo-image --image-feature layering 分层快照
+rbd create rbd/image --image-feature  layering --size 10G # 指定池 rbd 创建 image
+
+rbd list # 查看rbd池的镜像
+rbd info demo-image 
+
+# 缩小容量
+rbd resize --size 7G image --allow-shrink
+
+# 扩容容量
+rbd resize --size 15G image
+```
+
+```shell
+#集群内将镜像映射为本地磁盘
+rbd map demo-image # 挂载 默认/dev/rdb
+rbd showmapped # 查询挂载
+rbd unmap demo-image # 卸载
+#客户端需要安装ceph-common软件包
+#拷贝配置文件（否则不知道集群在哪）
+#拷贝连接密钥（否则无连接权限）
+yum -y  install ceph-common
+scp 192.168.4.11:/etc/ceph/ceph.conf  /etc/ceph/
+scp 192.168.4.11:/etc/ceph/ceph.client.admin.keyring /etc/ceph/
+# 然后查看镜像池、挂载
+```
+
+### 创建镜像快照
+
+```shell
+# 查看镜像快照 snapshot
+rbd snap ls image
+# 创建镜像快照，快照是对某一刻数据备份
+rbd snap create image --snap image-snap1 # 对 image 镜像创建快照 名字是 image-snap1
+# 还原快照
+rbd snap rollback image --snap image-snap1
+```
+
+### 创建快照克隆
+
+```shell
+rbd snap protect image --snap image-snap1 # 保护镜像的快照 unprotect 取消保护
+rbd clone image --snap image-snap1 image-clone --image-feature layering # 使用image的快照image-snap1克隆一个新的image-clone镜像
+#克隆镜像很多数据都来自于快照链
+#如果希望克隆镜像可以独立工作，就需要将父快照中的数据，全部拷贝一份，但比较耗时！！！
+rbd flatten image-clone
+```
+
+
+
+## Ceph文件系统
+
+文件系统例如：NFS，ISCSI，Samba等
+
+```shell
+# 部署元数据服务器
+yum -y install ceph-mds
+# 登陆node1部署节点操作
+cd  /root/ceph-cluster
+ceph-deploy mds create node4
+# 同步配置文件和key
+ceph-deploy admin node4
+#node3 创建存储池，两个 一个用于inode，一个用于block
+ceph osd pool create cephfs_data 128 # 创建存储池，分128组，必须是2的幂次
+ceph osd pool create cephfs_metadata 128
+ceph mds stat   # 查看mds状态
+# 创建Ceph文件系统
+ceph fs new myfs1 cephfs_metadata cephfs_data
+# myfs1 文件系统名 cephfs_metadata 存inode cephfs_data 存block
+ceph fs ls # 查看
+# 客户端挂载
+mount -t ceph 192.168.4.11:6789:/  /mnt/cephfs/ -o name=admin,secret=AQBTsdRapUxBKRAANXtteNUyoEmQHveb75bISg==
+# 注意:文件系统类型为ceph
+# 192.168.4.11为MON节点的IP（是管理包所在，不是MDS节点）
+# admin是用户名,secret是密钥
+# 密钥可以在/etc/ceph/ceph.client.admin.keyring中找到
+```
+
+
+
+## Ceph对象存储服务器
+
+
+
+```shell
+# 部署RGW软件包
+ceph-deploy install --rgw node5
+# 同步配置文件与密钥到node5
+cd /root/ceph-cluster
+ceph-deploy admin node5
+# 启动一个rgw服务
+ceph-deploy rgw create node5
+# 修改服务端口 登陆node5，RGW默认服务端口为7480，修改为8000或80更方便客户端记忆和使用
+vim  /etc/ceph/ceph.conf
+[client.rgw.node5]
+host = node5
+rgw_frontends = "civetweb port=8000"
+# node5为主机名
+# civetweb是RGW内置的一个web服务
+
+```
+
+
+
+# 50 KVM 使用
+
+虚拟机构成：
+
+- 磁盘镜像文件 /var/lib/libvirt/images/文件.qcow2
+- 硬件描述文件 /etc/libvirt/qemu/文件.xml
+
+## 附件 
+
+[从单机到2000万QPS并发的Redis高性能缓存实践之路](https://www.douban.com/group/topic/124428411/)
