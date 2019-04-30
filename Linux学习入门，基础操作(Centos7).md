@@ -445,6 +445,8 @@ yum remove 包名 # 依赖关系以下的都删除
 
 createrepo "目录" # 生成yum仓库数据列表文件
 
+yum provides 目录/文件 # 查看目录/文件由哪个软件提供
+
 光盘挂载格式 iso9660
 ```
 
