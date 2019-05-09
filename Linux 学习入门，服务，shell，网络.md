@@ -1529,6 +1529,8 @@ useradd -s /sbin/nologin nginx
 > --group=nginx  \                            # 指定组
 > --with-http_ssl_module                      # 开启SSL加密功能
 
+# ./auto/options 有安装包选项
+
 curl IP # 命令行浏览器
 
 /usr/local/nginx/sbin/nginx                    # 启动服务
