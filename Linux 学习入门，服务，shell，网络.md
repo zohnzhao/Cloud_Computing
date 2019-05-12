@@ -518,7 +518,7 @@ chcon -R --reference=模板目录 新目录 # 循环复制模板目录的上下�
 
 ```shell
 semanage port -l # 查看所有SELinux默认端口
-semange port -a -t http_port_t -p tcp 8909 # 开放httpd监听8909端口
+semanage port -a -t http_port_t -p tcp 8909 # 开放httpd监听8909端口
 ```
 
 
