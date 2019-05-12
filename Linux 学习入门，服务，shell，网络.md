@@ -268,7 +268,7 @@ mount -o username= ,password= # IP/共享名 "挂载点" # 格式一
 mount -o user= ,pass= # IP/共享名 "挂载点" # 格式二
 
 #永久挂载，追加至/etc/fstab
-# IP/共享名 "挂载点" cifs defaults，user=,pass=,_netdev 0 0 # _netdev 声明网络设备，系统完全启动后挂载
+//IP/共享名 "挂载点" cifs defaults，user=,pass=,_netdev 0 0 # _netdev 声明网络设备，系统完全启动后挂载
 
 ```
 
