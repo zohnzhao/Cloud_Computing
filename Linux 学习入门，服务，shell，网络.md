@@ -1397,7 +1397,7 @@ sed  '2i XX'   a.txt            # 在第二行前一行，插入XX
 sed  '2c XX'   a.txt            # 将第二行替换为XX
 # 可以用\n换行
 sed '2r m.txt' a.txt            # 在第2行下方插入m.txt
-sed '1,4r m.txt' a.txt          # 1到4行保存到m.txt
+sed '1,4w m.txt' a.txt          # 1到4行保存到m.txt
 ```
 
   
