@@ -94,7 +94,7 @@ systemctl  enable  chronyd
 
 ```shell
 # 配置文件写法
-server IP iburst # iburst 快速同步
+server IP iburst # iburst 重启后立刻同步
 
 systemctl restart chronyd # 重启chronyd服务
 systemctl enable chronyd # 设置chronyd服务开机启动
@@ -268,7 +268,7 @@ mount -o username= ,password= # IP/共享名 "挂载点" # 格式一
 mount -o user= ,pass= # IP/共享名 "挂载点" # 格式二
 
 #永久挂载，追加至/etc/fstab
-//IP/共享名 "挂载点" cifs defaults，user=,pass=,_netdev 0 0 # _netdev 声明网络设备，系统完全启动后挂载
+# IP/共享名 "挂载点" cifs defaults，user=,pass=,_netdev 0 0 # _netdev 声明网络设备，系统完全启动后挂载
 
 ```
 
@@ -518,7 +518,7 @@ chcon -R --reference=模板目录 新目录 # 循环复制模板目录的上下�
 
 ```shell
 semanage port -l # 查看所有SELinux默认端口
-semanage port -a -t http_port_t -p tcp 8909 # 开放httpd监听8909端口
+semange port -a -t http_port_t -p tcp 8909 # 开放httpd监听8909端口
 ```
 
 
@@ -1397,7 +1397,7 @@ sed  '2i XX'   a.txt            # 在第二行前一行，插入XX
 sed  '2c XX'   a.txt            # 将第二行替换为XX
 # 可以用\n换行
 sed '2r m.txt' a.txt            # 在第2行下方插入m.txt
-sed '1,4w m.txt' a.txt          # 1到4行保存到m.txt
+sed '1,4r m.txt' a.txt          # 1到4行保存到m.txt
 ```
 
   
@@ -2138,7 +2138,7 @@ keystoreFile="/usr/local/tomcat/keystore" keystorePass="123456" clientAuth="fals
 <Host name="www.a.com" appBase="a" unpackWARS="true" autoDeploy="true">
 <Context path="/test" docBase="/var/www/html/" />
 # 从默认localhost虚拟主机中把Valve这段复制过来，适当修改下即可
-<Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
+< className="org.apache.catalina.valves.AccessLogValve" directory="logs"
                prefix=" a_access" suffix=".txt" # prefix 文件名 suffix 扩展名
                pattern="%h %l %u %t &quot;%r&quot; %s %b" />
 </Host>
@@ -2314,7 +2314,7 @@ SVN是集中式管理。
 
 - 集中式管理，管理方式在服务端配置好，客户端只需要同步提交即可，使用方便，操作简单，很容易就可以上手。
 - 在服务端统一控制好访问权限，利用代码的安全管理。
-- 所有的代码已服务端为准，代码一致性高。
+- 所有的代码以服务端为准，代码一致性高。
 
 缺点
 
@@ -2348,6 +2348,8 @@ git是Linus Trovalds大神的作品，是一个开放源码的版本控制软件
 如果对访问控制、权限分配和代码安全性等要求比较高的，建议使用svn。
 
 如果是分布式，多人开发，版本迭代比较快的项目，建议使用git。
+
+
 
 # 34 制作RPM包
 
@@ -2884,6 +2886,10 @@ sysctl -p # 配置立即生效
 
 配优先级，VIP
 
+## Keepalived 运行原理
+
+Keepalived检测每个服务器节点状态，服务器节点异常或工作出现故障，Keepalived将故障节点从集群系统中剔除。故障节点恢复后，Keepalived自动将其加入到集群系统中，所有工作自动完成，无需人工干预。
+
 ## Keepalived高可用服务器
 
 ```shell
@@ -3049,7 +3055,6 @@ listen  websrv-rewrite 0.0.0.0:80 # websrv-rewrite 集群名
 systemctl start haproxy
 
 # /etc/haproxy/configure	帮助文档
-
 ```
 
 
@@ -3217,7 +3222,6 @@ host = node5
 rgw_frontends = "civetweb port=8000"
 # node5为主机名
 # civetweb是RGW内置的一个web服务
-
 ```
 
 
