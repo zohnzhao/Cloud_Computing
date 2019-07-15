@@ -3,6 +3,30 @@
 实现企业级的开源分布式监控,通过采集监控数据,通过B/S模式实现Web管理
 
 1. 部署LNMP环境
+
+   ```shell
+   yum -y install  php-gd php-xml php-bcmath php-mbstring
+   
+   vim /usr/local/nginx/conf/nginx.conf
+   … …
+   http{
+   … …
+       fastcgi_buffers 8 16k;                      //缓存php生成的页面内容，8个16k
+       fastcgi_buffer_size 32k;                      //缓存php生产的头部信息
+       fastcgi_connect_timeout 300;                 //连接PHP的超时时间
+       fastcgi_send_timeout 300;                     //发送请求的超时时间
+       fastcgi_read_timeout 300;                        //读取请求的超时时间
+   location ~ \.php$ {
+                   root           html;
+                   fastcgi_pass   127.0.0.1:9000;
+                   fastcgi_index  index.php;
+                   include        fastcgi.conf;
+           }
+   … …
+   ```
+
+   
+
 2. 安装Zabbix
 
 ```shell
