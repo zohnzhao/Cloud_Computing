@@ -974,6 +974,545 @@ kubectl delete deployment nginx
 kubectl delete service nginx
 ```
 
+## yaml文件
+
+创建资源的方法:
+
+  apiserver 仅接收 JSON 格式的资源定义;
+
+  aml 格式提供配置清单,apiserver 可自动将其转为json格式,然后再提交;
+
+大部分资源的配置清单:
+
+```yaml
+apiVersion: group/version
+    # $ kubectl api-versions
+kind: 资源类别
+matedata: 元数据
+    name:
+    namespace:
+    labels:
+    annotations:
+      每个资源的引用PATH
+        /api/GROUP/VERSION/namespaces/NAMESPACE/TYPE/NAME
+spec: 期望的状态,disired state
+status: 当前的状态,current state,本字段由kubernetes集群维护
+```
+
+更多key讲解
+
+```yaml
+imagePullPolicy: <string>
+    Always,Never,IfNotPresent
+    修改镜像中的默认应用:
+    command,args
+        https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/
+标签:
+    key=value
+       key: 字母 数字 _ - . 五种 长度63字符
+       value: 可以为空,长度63字符,只能字母数字开头,结尾
+     
+标签选择器:
+    等值关系: =,==,!=
+    集合关系:
+        KEY in(VALUE1,VALUE2,...)
+        KEY not in(VALUE1,VALUE2,...)
+        KEY
+        !KEY
+许多资源支持内嵌字段定义其使用的标签选择器:
+    matchlabel: 直接给定键值
+    matchExpressions: 基于给定的表达式来定义使用标签选择器,{key:"KEY",operator:"OPEARTOR",value:[VALUE1,VALUE2,...]}
+        操作符:
+            In,NotIn: values字段的值必须为非空列表;
+            Exists,NotExists: values字段的值必须为空列表;
+                
+nodeSelector: <map[string]string> 节点标签选择器
+nodeName: <string>
+annotations: 
+   与label不同的地方在于,它不能用于挑选资源对象,仅用于为对象提供"元数据"。没有字符数量限制
+Pod生命周期:
+    状态: Pending(挂起),Running,Failed,Succeeded,Unknown
+    创建Pod: 
+    Pod生命周期中的重要行为:
+        初始化容器
+        容器探测:
+            liveness
+            readliness
+restartPolicy:
+    Always,OnFailure,Never.Default to Always.
+    
+探针类型有三种:
+    ExecAction,TCPSockAction,HTTPGetAction
+Pod控制器:
+    ReplicaSet: 用户期望数,标签选择器,模板,简写rs,在任何给定时间维护一组稳定的副本Pod
+    Deployment: 管理使用多个ReplicaSet
+    DaemonSet: 能确保其创建的Pod在集群中的每一台（或指定）Node上都运行一个副本。
+    Job: 临时任务
+    CronJob: 
+    StatefulSet:
+    
+Service:
+    使用CoreDNS 1.11+
+    node network,pod network,cluster network
+    virtual IP
+    工作在4层,有调度功能
+    工作模式:
+        userspace: 1.1-
+        iptables: 1.10-
+        ipvs: 1.11+
+    类型:
+        ExternalName:
+        ClusterIP: 在群集内部公开的IP服务。选择此值使服务只能从群集中访问。
+        NodePort: 在每个节点上公开的IP服务。可以在群集外部访问
+        LoadBalancer: 使用云提供商的负载均衡器在外部公开服务
+        NOdePort: client -> NodeIP: NodePort -> ClusterIP: ServicePort -> PodIP: containerPort
+    资源记录:
+        SVC_NAME.NS_NAME.DOMAIN.LTD.
+        reids.default.svc.cluster.local.
+
+Ingress and Ingress Controller:
+    利用DaemonSet在指定Pod调度外部访问,工作在7层
+    Ingress配置提供外部可访问的URL、负载均衡、SSL、基于名称的虚拟主机等。用户通过POST Ingress资源到API server的方式来请求ingress。 Ingress controller负责实现Ingress，通常使用负载平衡器，它还可以配置边界路由和其他前端，这有助于以HA方式处理流量。
+    
+存储卷:
+    emptyDir: 临时目录
+    hostPath: 主机目录
+    ...
+    pvc绑定pc
+    
+statefulset: 有状态应用副本集
+    在具有以下特点时使用StatefulSets:
+        稳定且唯一的网络标志符;
+        稳定且持久的存储;
+        有序,平滑的部署,扩展,删除和终止;
+        有序的滚动更新;
+    三个组件: headless service,Statefulset,volumeClaimTemplate
+    名称: pod_name.service.ns_name.svc.cluster.local
+
+客户端-->API server:
+    user: username,uid
+    group:
+    extra:
+    
+    API
+    Request path: 所有的资源数据 可以通过url获得
+    HTTP request verb: get,post,put,delete
+    API request verb: get,list,create,update,patch,watch,proxy,redirect,delete,deletecollection
+    Object URL: /apis/<GROUP>/<VERSION>/namespaces/<NAMESPACE_NAME>/<KIND>[/OBJECT_ID]/
+    Resource:
+    Subresource:
+    Namespace
+    API group
+    
+    授权插件: Node,ABAC,RBAC(Role-based AC),Webhook
+
+kubernetes网络通信:
+    (1)容器间通信: 同一Pod内的多个容器间通信,lo
+    (2)Pod通信: Pod IP <-> Pod IP
+    (3)Pod与Service通信: Pod IP <-> Cluster IP
+    (4)Service与集群外部客户端通信:
+    
+CNI:
+    flannel
+    calico
+    canel
+    kube-router
+    ...
+    解决方案:
+        虚拟网桥
+        多路复用: MacVLAN
+        硬件交换: SR-IOV
+    kubelet, /etc/cni/net.d/
+    flannel:
+        支持多种后端:
+            VxLAN:
+                (1) vxlan
+                (2) Directrouting
+            host-gw: Host Gateway
+            UDP:
+        flannel 的网络配置参数:
+            NetWork: flannel 使用的CIDR格式的网络地址,用于为Pod配置网络功能;
+                10.244.0.0/16 ->
+            SubnetLen: 把NetWork切分子网供各节点使用,使用多长的掩码进行切分,默认24位;
+            SubnetMin: 起始子网 如:10.244.10.0/24
+            SubnetMax: 结尾子网 如:10.244.100.0/24
+            Backend: vxlan,host-gw,udp
+                vxlan: 
+Scheduler 提供的调度流程分三步:
+    预选策略(predicate) 遍历nodelist，选择出符合要求的候选节点，Kubernetes内置了多种预选规则供用户选择。
+    优选策略(priority) 在选择出符合要求的候选节点中，采用优选规则计算出每个节点的积分，最后选择得分最高的。
+    选定(select) 如果最高得分有好几个节点，select就会从中随机选择一个节点。
+调度器:
+    预选策略:
+        CheckNodeCondition:
+        GerneralPredicates:
+            HostName: 检查Pod对象是否定义了pod.spec.hostname,
+            PodFitsHostPorts: pod.spec.containers.ports.hostPort
+            MatchNodeSelector: pod.spec.nodeSelector
+            PodFitsResources: 检查Pod的资源需求是否能被节点所满足.
+        NoDiskConflict: 检查Pod依赖的存储卷是否能满足需求
+        POdToleratesNodeTaints: 检查Pod上的spec.tolerations可容忍的污点是否完全包含节点上的污点;
+
+资源限制:
+    requests: 需求,最低保障;
+    limits: 限制,硬限制;
+    
+    CPU:
+        1颗逻辑CPU=1000 millicores
+        500m = 0.5CPU
+    Mem: E,P,T,G,M,K,Ei,Pi
+    QoS: # 资源类别
+        Guranteed: 每个容器同时设置CPU和内存的requests和limits.并且相等,最高优先级别.
+        Burstable: 至少有一个容器设置CPU或内存资源的requests属性.
+        BestEffort: 没有任何一个容器设置了requests或limits属性,最低优先级别.
+    
+    HeapSter: Heapster是容器集群监控和性能分析工具，天然的支持Kubernetes和CoreOS。
+              Kubernetes有个出名的监控agent—cAdvisor。在每个kubernetes Node上都会运行cAdvisor，它会收集本机以及容器的监控数据(cpu,memory,filesystem,network,uptime)。在较新的版本中，K8S已经将cAdvisor功能集成到kubelet组件中。每个Node节点可以直接进行web访问。
+
+资源指标API: metrics-server
+自定义指标API: prometheus,k8s-prometheus-adapter
+
+新一代指标架构:
+   核心指标流水线: 由kubelet,metrics-server以及由APIserver提供的api组成;CPU累积使用率,内存实时使用率,Pod的资源占用率以及容器的磁盘占用率;
+   监控流水线: 用于从系统收集各种指标数据并提供终端用户,存储系统以及HPA(Horizontal Pod Autoscaling，即pod的水平自动扩展),包含核心指标与非核心指标,非核心指标本身不能被k8s解析.
+   metrics-server: 第三方
+           
+Helm: 类似yum,管理k8s源,可以快速部署.工作在集群之外,是客户端.
+    组件:
+      chart(配置,相当于rpm,部署后叫release),tiller(服务端,集群内)
+      Repository: Charts仓库
+      Release: 部署于集群上的实例
+      
+      Chart -- config --> Release
+      
+      程序架构:
+          helm: 客户端,管理本地的Chart仓库,管理Chart,与Tiller服务器交互,发送Chart,实例安装,查询,卸载等操作.
+          Tiller: 服务端,接收helm发来的Charts与config,合并生成release.
+      release管理:
+          install
+          delete
+          upgrade/rollbcak
+          list
+          history: release的历史信息;
+          status: 获得release的状态信息;
+      
+      chart管理:
+          create
+          fetch
+          get
+          inspect
+          package
+          verify
+```
+
+### 创建第一个demo
+
+```yaml
+vim demo.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: pod-demo
+    namespace: default
+    labels:
+        app: myapp
+        tier: frontend
+spec:
+    containers:
+        - name: myapp
+          image: ikubernetes/myapp:v1
+        - name: busybox
+          image: busybox:latest
+          command:    # 指定CMD       
+              - "/bin/sh"
+              - "-c"
+              - "sleep 5"
+
+kubectl create -f demo.yaml
+```
+
+### 改进demo.yaml
+
+```yaml
+vim demo.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: pod-demo
+    namespace: default
+    labels:
+        app: myapp
+        tier: frontend
+    annotations:
+        qlst.top/created-by: "Archangel" # 新增元数据
+spec:
+    containers:
+        - name: myapp
+          image: ikubernetes/myapp:v1
+          ports:     # 新增
+              - name: http
+                containerPort: 80
+              - name: https
+                containerPort: 443
+        - name: busybox
+          image: busybox:latest
+          imagePullPolicy: IfNotPresent  # 新增
+          command:     
+              - "/bin/sh"
+              - "-c"
+              - "sleep 5"
+    nodeSelector:    # 新增,指定只在符合标签条件的node运行
+        disktype: ssd
+
+kubectl create -f demo.yaml
+```
+
+### liveness-exec.yaml
+
+```yaml
+vim liveness-exec.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: liveness-exec-demo
+    namespace: default
+spec:
+    containers:
+    - name: liveness-exec-container
+      images: busy-box:latest
+      imagePullPolicy: IfNotPresent
+      command: ["bin/sh","-c","touch /tmp/healthy;sleep 30;rm -rf /tmp/healthy;sleep 60;"]
+      livenessProbe:
+          exec:
+              command: ["test","-e","/tmp/healthy"]
+          initialDelaySecond: 1
+          periodSeconds: 3
+
+kubectl create -f liveness-exec.yaml
+```
+
+### liveness-httpget.yaml
+
+```yaml
+vim liveness-httpget.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: liveness-httpget-demo
+    namespace: default
+spec:
+    containers:
+    - name: liveness-httpget-container
+      images: ikubernetes/myapp:v1
+      imagePullPolicy: IfNotPresent
+      ports:
+          - name: http
+            containerPort: 80
+      livenessProbe:
+          httpGet:
+              port: http
+              path: /index.html
+          initialDelaySecond: 1
+          periodSeconds: 3
+
+kubectl create -f liveness-httpget.yaml
+```
+
+### readiness-httpget.yaml
+
+```yaml
+vim readiness-httpget.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: readiness-httpget-demo
+    namespace: default
+spec:
+    containers:
+    - name: readiness-httpget-container
+      images: ikubernetes/myapp:v1
+      imagePullPolicy: IfNotPresent
+      ports:
+          - name: http
+            containerPort: 80
+      livenessProbe:
+          httpGet:
+              port: http
+              path: /index.html
+          initialDelaySecond: 1
+          periodSeconds: 3
+
+kubectl create -f readiness-httpget.yaml
+```
+
+### poststart-pod.yaml
+
+```yaml
+vim poststart-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: poststart-pod
+    namespace: default
+spec:
+    containers:
+    - name: busybox-httpd
+      images: busybox:latest
+      imagePullPolicy: IfNotPresent
+      lifecycle:  
+          postStart: # 启动过程中执行
+              exec:
+                  command: ["bin/sh","-c","mkdir -p /data/web/html;echo 'Hello world' >> /data/web/html/index.html"]
+      command: ["bin/sh","-c","sleep 30"] # 启动时执行此命令
+
+kubectl create -f poststart-pod.yaml
+```
+
+### rs-demo.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+    name: myapp
+    namespace: default
+spec:
+    replicas: 2
+    selector:
+        matchLabels:
+            app: myapp
+            release: canary
+    template:
+        metadata:
+            name: myapp-pod
+            labels:
+                app: myapp
+                release: canary
+        spec:
+            containers:
+                - name: myapp-container
+                  image: ikubernetes/myapp:v1
+                  ports:
+                      - name: http
+                        containerPort: 80
+```
+
+### deploy-demo.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: redis
+    namespace: default
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: redis
+            roll: logsto
+    template:
+        matchLabels:
+            labels:
+                app: redis
+                roll: logsto
+        spec:
+            containers:
+                - name: redis
+                  image: redis:4.0
+                  ports:
+                      - name: redis
+                        containerPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: myapp-deploy
+    namespace: default
+spec:
+    replicas: 2
+    selector:
+        matchLabels:
+            app: myapp
+            release: canary
+    template:
+        metadata:
+            name: myapp-pod
+            labels:
+                app: myapp
+                release: canary
+        spec:
+            containers:
+                - name: myapp-container
+                  image: ikubernetes/myapp:v1
+                  ports:
+                      - name: http
+                        containerPort: 80
+```
+
+### redis-svc.yaml
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+    name: redis
+    namespace: default
+spec:
+    selector:   # 与redis标签对应
+        app: redis
+        roll: logsto 
+    clusterIP: 10.97.97.97
+    type: ClusterIP
+    ports:
+        - port: 6379
+          targetPort: 6379
+```
+
+### myapp-svc.yaml
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+    name: myapp
+    namespace: default
+spec:
+    selector:   # 与应用标签对应
+        app: myapp
+        release: canary 
+    clusterIP: 10.99.99.99 # 不指定自动分配
+    sessionAffinity: ClientIP # 指定相同IP转发至相同Pod,默认None
+    type: NodePort
+    ports:
+        - port: 80
+          targetPort: 80
+          nodePort: 30080 # 不指定自动分配
+```
+
+### myapp-svc-headless.yaml
+
+有时您不需要负载平衡和单个服务IP。在这种情况下，您可以通过显式指定`"None"`群集IP（`.spec.clusterIP`）来创建所谓的“无头”服务。会显示所有podip
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+    name: myapp-svc
+    namespace: default
+spec:
+    selector:   # 与应用标签对应
+        app: myapp
+        release: canary 
+    clusterIP: None # 指定无头服务
+    sessionAffinity: ClientIP # 指定相同IP转发至相同Pod,默认None
+    type: NodePort
+    ports:
+        - port: 80
+          targetPort: 80
+          nodePort: 30080 # 不指定自动分配
+```
+
 
 
 ## kubectl
@@ -995,6 +1534,15 @@ kubectl completion  -h
 
 ## Pod
 
+### explain pods
+
+查看pod如何定义
+
+```shell
+$ kubectl explain pods
+$ kubectl explain pods.metadata
+```
+
 ### create pod
 
 create pod through yml file
@@ -1010,6 +1558,8 @@ pod "nginx-busybox" created
 $ kubectl get pods
 NAME            READY     STATUS    RESTARTS   AGE
 nginx-busybox   2/2       Running   0          57s
+
+$ kubectl get pods -l app # 只显示key为app的pod
 ```
 
 ### get pod detail
@@ -1028,12 +1578,15 @@ here `-o` we can use `wide`, `json`, `yaml`, etc.
 ### get into pod(container)
 
 ```shell
-$ kubectl exec nginx-busybox -it sh
+$ kubectl exec nginx-busybox -c nginx -it sh
 Defaulting container name to nginx.
 Use 'kubectl describe pod/nginx-busybox -n default' to see all of the containers in this pod.
-#
-#
-#
+```
+
+### logs
+
+```shell
+$ kubectl logs nginx-busybox nginx # 查看访问日志
 ```
 
 ### delete pod
@@ -1042,6 +1595,15 @@ Use 'kubectl describe pod/nginx-busybox -n default' to see all of the containers
 $ kubectl delete -f nginx_busybox.yml
 pod "nginx-busybox" deleted
 ```
+
+## Label
+
+```shell
+$ kubectl label pods nginx-busybox release=canary # 添加标签
+$ kubectl label pods nginx-busybox release=stable --overwrite # 修改已有标签
+```
+
+
 
 ## Namespace
 
@@ -1716,52 +2278,452 @@ For a probe, the kubelet makes the probe connection at the node, not in the pod,
 
 ## Ingress
 
+使用 ingress-nginx 作为 ingress-controller
 
+```shell
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/mandatory.yaml
+
+# 裸机(非云及mac等),可以接收外部访问
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/baremetal/service-nodeport.yaml
+# 验证安装
+kubectl get pods --all-namespaces -l app.kubernetes.io/name=ingress-nginx --watch
+# 查看开放的端口
+kubectl get svc -n ingress-nginx
+```
+
+编写 deplayment与service yaml
+
+```yaml
+vim deploy.yaml
+apiVersion: v1
+kind: Service
+metadata:
+   name: myapp-sv
+   namespace: default
+spec:
+    selector:
+        app: myapp
+        release: canary
+    ports:
+        - name: http
+          port: 80
+          targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: myapp-deploy
+    namespace: default
+spec:
+    replicas: 3
+    selector:
+        matchLabels:
+            app: myapp
+            release: canary
+    template:
+        metadata:
+            name: myapp-pod
+            labels:
+                app: myapp
+                release: canary
+        spec:
+            containers:
+                - name: myapp-container
+                  image: ikubernetes/myapp:v1
+                  ports:
+                      - name: http
+                        containerPort: 80
+```
+
+编写 ingress yaml
+
+```yaml
+vim ingress-myapp.yaml
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+    name: ingress-myapp
+    namespace: default
+    annotations:
+        kubernetes.io/ingress.class: "nginx"
+spec:
+    rules:
+        - host: myapp.qlst.top
+          http:
+              paths:
+                  - path:
+                    backend:
+                           serviceName: myapp-sv
+                           servicePort: 80
+```
+
+启动yaml
+
+```shell
+kubectl apply -f deploy.yaml     
+kubectl apply -f ingress-myapp.yaml
+kubectl get ingress
+```
+
+编写 tomcat-deplayment与service yaml
+
+```yaml
+vim tomcat-deploy.yaml
+apiVersion: v1
+kind: Service
+metadata:
+   name: tomcat-sv
+   namespace: default
+spec:
+    selector:
+        app: tomcat
+        release: canary
+    ports:
+        - name: http
+          port: 8080
+          targetPort: 8080
+        - name: ajp
+          port: 8009
+          targetPort: 8009
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: tomcat-deploy
+    namespace: default
+spec:
+    replicas: 3
+    selector:
+        matchLabels:
+            app: tomcat
+            release: canary
+    template:
+        metadata:
+            name: tomcat-pod
+            labels:
+                app: tomcat
+                release: canary
+        spec:
+            containers:
+                - name: tomcat-container
+                  image: tomcat:v1
+                  ports:
+                      - name: http
+                        containerPort: 8080
+                      - name: ajp
+                        containerPort: 8009
+```
+
+编写 ingress-tomcat yaml
+
+```yaml
+vim ingress-tomcat.yaml
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+    name: ingress-tomcat
+    namespace: default
+    annotations:
+        kubernetes.io/ingress.class: "nginx"
+spec:
+    rules:
+        - host: tomcat.qlst.top
+          http:
+              paths:
+                  - path:
+                    backend:
+                           serviceName: tomcat-sv
+                           servicePort: 8080
+```
+
+创建https
+
+```yaml
+kubectl create secret tls tomcat-ingress-secret --cert=tls.cry --key=tls.key
+
+vim ingress-tomcat.yaml
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+    name: ingress-tomcat
+    namespace: default
+    annotations:
+        kubernetes.io/ingress.class: "nginx"
+spec:
+    tls:
+        - host: tomcat.qlst.top
+          secretName: tomcat-ingress-secret
+    rules:
+        - host: tomcat.qlst.top
+          http:
+              paths:
+                  - path:
+                    backend:
+                           serviceName: tomcat-sv
+                           servicePort: 8080
+```
+
+## Volume
+
+创建emptyDir
+
+```yaml
+vim demo.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: pod-demo
+    namespace: default
+    labels:
+        app: myapp
+        tier: frontend
+    annotations:
+        qlst.top/created-by: "Archangel"
+spec:
+    containers:
+        - name: myapp
+          image: ikubernetes/myapp:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+              - name: http
+                containerPort: 80
+          volumeMounts:
+              - name: html
+                mountPath: /usr/share/nginx/html
+        - name: busybox
+          image: busybox:latest
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+              - name: html
+                mountPath: /data/
+          command: ["/bin/sh"]
+          args: ["-c","while true; do echo $(date) >> /data/index.html; sleep 2; done"]
+    volumes:
+        - name: html
+          emptyDir: {}
+```
+
+创建hostPath
+
+```yaml
+vim host-vol.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: pod-host-demo
+    namespace: default
+    annotations:
+        qlst.top/created-by: "Archangel"
+spec:
+    containers:
+        - name: myapp
+          image: ikubernetes/myapp:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+              - name: http
+                containerPort: 80
+          volumeMounts:
+              - name: html
+                mountPath: /usr/share/nginx/html
+    volumes:
+        - name: html
+          hostPath:
+              path: /data/pod/volume1
+              type: DirectoryOrCreate
+```
+
+创建 nfs
+
+```yaml
+vim nfs-vol.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: pod-nfs-demo
+    namespace: default
+    annotations:
+        qlst.top/created-by: "Archangel"
+spec:
+    containers:
+        - name: myapp
+          image: ikubernetes/myapp:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+              - name: http
+                containerPort: 80
+          volumeMounts:
+              - name: html
+                mountPath: /usr/share/nginx/html
+    volumes:
+        - name: html
+          nfs:
+              path: /data/volumes
+              server: nfsIP
+```
 
 ## PV/PVC/StorageClass
 
+创建 PV
 
+```yaml
+vim pv-demo.yaml
+apiVersion: v1
+Kind: PersistentVolume
+    name: pv001
+    labels:
+        name: pv001
+spec:
+    nfs:
+        path: /data/volumes/v1
+        server: nfsIP
+    accessModes: ["ReadWriteMany","ReadWriteOnce"]
+    capacity:
+        storage: 2Gi
+---
+vim pv-demo.yaml
+apiVersion: v1
+Kind: PersistentVolume
+    name: pv002
+    labels:
+        name: pv002
+spec:
+    nfs:
+        path: /data/volumes/v2
+        server: nfsIP
+    accessModes: ["ReadWriteOnce"]
+    capacity:
+        storage: 5Gi
+---
+vim pv-demo.yaml
+apiVersion: v1
+Kind: PersistentVolume
+    name: pv003
+    labels:
+        name: pv003
+spec:
+    nfs:
+        path: /data/volumes/v3
+        server: nfsIP
+    accessModes: ["ReadWriteMany","ReadWriteOnce"]
+    capacity:
+        storage: 10Gi
+```
+
+创建 PVC
+
+```yaml
+vim pvc-demo.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: pod-pvc-demo
+    namespace: default
+    annotations:
+        qlst.top/created-by: "Archangel"
+spec:
+     accessModes: ["ReadWriteMany","ReadWriteOnce"]
+     resource:
+         requests:
+             storage: 6Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+    name: pod-pvc-vol-demo
+    namespace: default
+    annotations:
+        qlst.top/created-by: "Archangel"
+spec:
+    containers:
+        - name: myapp
+          image: ikubernetes/myapp:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+              - name: http
+                containerPort: 80
+          volumeMounts:
+              - name: html
+                mountPath: /usr/share/nginx/html
+    volumes:
+        - name: html
+          persistentVolumeClaim:
+              claimName: pod-pvc-demo
+```
 
 ## secret
 
+```shell
+kubectl create secret generic mysql-root-password --from-literal=passwd=Mysql@11..q
+```
+
+### 创建 yaml
+
+```yaml
+vim pod-secret.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: pod-secret-demo
+    namespace: default
+    labels:
+        app: myapp
+        tier: frontend
+spec:
+    containers:
+        - name: myapp
+          image: ikubernetes/myapp:v1
+          ports:
+              - name: http
+                containerPort: 80
+          env:   # 在启动时设置,不会自动更新,密码会明文显示在环境变量
+              - name: MYSQL_ROOT_PASSWORD
+                valueFrom:
+                    secretKeyRef:
+                        name: mysql-root-password
+                        key: passwd
+```
+
+
+
 ## configmap
+
+键值数据,可以被pod使用.用于全局配置,可以通过volume实现实时更新配置
 
 ### create configmap from literal
 
-create configmap `config-1` by kubectl CLI
-
-```
-$ kubectl create configmap config-1 --from-literal=host=1.1.1.1 --from-literal=port=3000
+```shell
+$ kubectl create configmap nginx-config --from-literal=nginx_port=80 --from-literal=server_name=myapp.qlst.top
 ```
 
 or use yaml file to do the same thing:
 
-```
+```shell
 $ kubectl apply -f configmap_from-literal.yml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: config-1
+  name: nginx-config
   namespace: default
 data:
-  host: 1.1.1.1
-  port: "3000"
+  nginx_port: 80
+  server_name: "myapp.qlst.top"
+  
 $ kubectl get configmap
 NAME       DATA      AGE
-config-1   2         5s
+nginx-config   2         5s
 ```
 
 ### create configmap from file
 
 create configmap `config-2` from CLI
 
-```
+```shell
 $ kubectl create configmap config-2 --from-file=./nginx.conf
 configmap "config-2" created
 $ kubectl get configmap
-NAME       DATA      AGE
-config-1   2         1m
-config-2   1         4s
+NAME            DATA      AGE
+nginx-config    2         1m
+config-2        1         4s
 ```
 
 ### using configmap by env
@@ -1793,6 +2755,499 @@ $ kubectl exec busybox-2 -it sh
 # cd /etc/config
 # ls
 nginx.conf
+```
+
+### 创建 yaml
+
+```yaml
+vim pod-configmap.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: pod-cm-demo
+    namespace: default
+    labels:
+        app: myapp
+        tier: frontend
+spec:
+    containers:
+        - name: myapp
+          image: ikubernetes/myapp:v1
+          ports:
+              - name: http
+                containerPort: 80
+          env:   # 在启动时设置,不会自动更新
+              - name: NGINX_SERVER_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: nginx-config
+                        key: nginx_port
+              - name: NGINX_SERVER_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: nginx-config
+                        key: server_name
+```
+
+### 创建 yaml2
+
+```yaml
+vim pod-configmap2.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: pod-cm-demo
+    namespace: default
+    labels:
+        app: myapp
+        tier: frontend
+spec:
+    containers:
+        - name: myapp
+          image: ikubernetes/myapp:v1
+          ports:
+              - name: http
+                containerPort: 80
+          volumeMounts:
+              - name: nginxconf
+                mountPath: /etc/nginx/config.d/
+                readOnly: true
+    volumes:   # 可以自动更新
+        - name: nginxconf
+          configMap:
+              name: nginx-config
+```
+
+## StatefulSets
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None
+  selector:
+    app: nginx
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  serviceName: "nginx"
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: nginx
+        image: gcr.io/google_containers/nginx-slim:0.8
+        ports:
+        - containerPort: 80
+          name: web
+        volumeMounts:
+        - name: www
+          mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:
+  - metadata:
+      name: www
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: my-storage-class
+      resources:
+        requests:
+          storage: 1Gi
+```
+
+## 认证与授权
+
+认证检测 -> 授权检测 -> 准入控制
+
+### ServiceAccount
+
+每个namespace下有一个名为default的默认的ServiceAccount对象，这个ServiceAccount里有一个名为Tokens的可以作为Volume一样被Mount到Pod里的Secret，当Pod启动时这个Secret会被自动Mount到Pod的指定目录下，用来协助完成Pod中的进程访问API Server时的身份鉴权过程。
+
+```shell
+# 创建 ServiceAccount 账户 admin
+kubectl create serviceaccount admin
+```
+
+创建使用制定ServiceAccount的Pod
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: pod-sa-demo
+    namespace: default
+    labels:
+        app: myapp
+        tier: frontend
+spec:
+    containers:
+        - name: myapp
+          image: ikubernetes/myapp:v1
+          ports:
+              - name: http
+                containerPort: 80
+    serviceAccountName: admin
+```
+
+### role,rolebinding,clusterrole
+
+```shell
+# 创建pods-reader角色 对pods 有get list 权限,--dry-run 不实际执行
+kubectl create role pods-reader --verb=get,list --resource=pods --dry-run
+# 显示配置
+kubectl create role pods-reader --verb=get,list --resource=pods --dry-run -o yaml
+
+# 显示已经创建的role
+kubectl get role
+
+# 创建rolebinding
+kubectl create rolebinding binding-reader-pods --role=pods-reader --user=<用户名>
+
+# 创建 clusterrole
+kubectl create clusterrole cluster-reader --verb=get,list --resource=pods --dry-run
+```
+
+## Dashboard
+
+```shell
+# github:https://github.com/kubernetes/dashboard
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard.yaml
+
+# 创建登录用户,根据https://github.com/kubernetes/dashboard/wiki/Creating-sample-user
+```
+
+## 网络插件 flannel
+
+```shell
+# 查看 flannel 名称
+kubectl get configmap -n kube-system
+# 查看 flannel 详细信息
+kubectl get configmap kube-flanne-cfg -o yaml -n kube-system
+```
+
+## 网络插件 Calico
+
+## 调度器,预选策略,优选函数
+
+## 资源限制
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+    name: pod-limit-demo
+    namespace: default
+    labels:
+        app: myapp
+        tier: frontend
+spec:
+    containers:
+        - name: myapp
+          image: ikubernetes/myapp:v1
+          ports:
+              - name: http
+                containerPort: 80
+          resources:
+              requests:
+                  cpu: "200m"
+                  memory: "128Mi"
+              limits:
+                  cpu: "500m"
+                  memory: "256Mi"
+```
+
+## HeapSter InfluxDB Grafana 1.11+已经废弃
+
+```shell
+# 部署 InfluxDB 
+# https://github.com/kubernetes-retired/heapster
+wget https://raw.githubusercontent.com/kubernetes-retired/heapster/master/deploy/kube-config/influxdb/influxdb.yaml
+
+vim influxdb.yaml
+apiVersion: apps/v1 # 修改
+kind: Deployment
+metadata:
+  name: monitoring-influxdb
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector: # 添加
+    matchLabels:
+      task: monitoring
+      k8s-app: influxdb
+  template:
+    metadata:
+      labels:
+        task: monitoring
+        k8s-app: influxdb
+    spec:
+      containers:
+      - name: influxdb
+        image: k8s.gcr.io/heapster-influxdb-amd64:v1.5.2
+        volumeMounts:
+        - mountPath: /data
+          name: influxdb-storage
+      volumes:
+      - name: influxdb-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    task: monitoring
+    # For use as a Cluster add-on (https://github.com/kubernetes/kubernetes/tree/master/cluster/addons)
+    # If you are NOT using this as an addon, you should comment out this line.
+    kubernetes.io/cluster-service: 'true'
+    kubernetes.io/name: monitoring-influxdb
+  name: monitoring-influxdb
+  namespace: kube-system
+spec:
+  ports:
+  - port: 8086
+    targetPort: 8086
+  selector:
+    k8s-app: influxdb
+    
+    
+wget https://raw.githubusercontent.com/kubernetes-retired/heapster/master/deploy/kube-config/influxdb/heapster.yaml
+
+vim heapster.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: heapster
+  namespace: kube-system
+---
+apiVersion: apps/v1 # 修改
+kind: Deployment
+metadata:
+  name: heapster
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector: # 添加
+    matchLabels:
+      task: monitoring
+      k8s-app: heapster
+  template:
+    metadata:
+      labels:
+        task: monitoring
+        k8s-app: heapster
+    spec:
+      serviceAccountName: heapster
+      containers:
+      - name: heapster
+        image: k8s.gcr.io/heapster-amd64:v1.5.4
+        imagePullPolicy: IfNotPresent
+        command:
+        - /heapster
+        - --source=kubernetes:https://kubernetes.default
+        - --sink=influxdb:http://monitoring-influxdb.kube-system.svc:8086
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    task: monitoring
+    # For use as a Cluster add-on (https://github.com/kubernetes/kubernetes/tree/master/cluster/addons)
+    # If you are NOT using this as an addon, you should comment out this line.
+    kubernetes.io/cluster-service: 'true'
+    kubernetes.io/name: Heapster
+  name: heapster
+  namespace: kube-system
+spec:
+  ports:
+  - port: 80
+    targetPort: 8082
+  type: NodePort # 添加
+  selector:
+    k8s-app: heapster
+    
+wget https://raw.githubusercontent.com/kubernetes-retired/heapster/master/deploy/kube-config/influxdb/grafana.yaml
+
+vim grafana.yaml
+apiVersion: apps/v1 # 修改
+kind: Deployment
+metadata:
+  name: monitoring-grafana
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector: # 添加
+    matchLabels:
+      task: monitoring
+      k8s-app: grafana
+  template:
+    metadata:
+      labels:
+        task: monitoring
+        k8s-app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: k8s.gcr.io/heapster-grafana-amd64:v5.0.4
+        ports:
+        - containerPort: 3000
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /etc/ssl/certs
+          name: ca-certificates
+          readOnly: true
+        - mountPath: /var
+          name: grafana-storage
+        env:
+        - name: INFLUXDB_HOST
+          value: monitoring-influxdb
+        - name: GF_SERVER_HTTP_PORT
+          value: "3000"
+          # The following env variables are required to make Grafana accessible via
+          # the kubernetes api-server proxy. On production clusters, we recommend
+          # removing these env variables, setup auth for grafana, and expose the grafana
+          # service using a LoadBalancer or a public IP.
+        - name: GF_AUTH_BASIC_ENABLED
+          value: "false"
+        - name: GF_AUTH_ANONYMOUS_ENABLED
+          value: "true"
+        - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+          value: Admin
+        - name: GF_SERVER_ROOT_URL
+          # If you're only using the API Server proxy, set this value instead:
+          # value: /api/v1/namespaces/kube-system/services/monitoring-grafana/proxy
+          value: /
+      volumes:
+      - name: ca-certificates
+        hostPath:
+          path: /etc/ssl/certs
+      - name: grafana-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    # For use as a Cluster add-on (https://github.com/kubernetes/kubernetes/tree/master/cluster/addons)
+    # If you are NOT using this as an addon, you should comment out this line.
+    kubernetes.io/cluster-service: 'true'
+    kubernetes.io/name: monitoring-grafana
+  name: monitoring-grafana
+  namespace: kube-system
+spec:
+  # In a production setup, we recommend accessing Grafana through an external Loadbalancer
+  # or through a public IP.
+  # type: LoadBalancer
+  # You could also use NodePort to expose the service at a randomly-generated port
+  # type: NodePort
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    k8s-app: grafana
+  type: NodePort
+```
+
+## metrics-server
+
+```shell
+# https://github.com/kubernetes/kubernetes/tree/master/cluster/addons/metrics-server
+git clone https://github.com/kubernetes/kubernetes.git
+# 或者
+wget https://raw.githubusercontent.com/kubernetes/kubernetes/master/cluster/addons/metrics-server/auth-delegator.yaml
+wget https://raw.githubusercontent.com/kubernetes/kubernetes/master/cluster/addons/metrics-server/auth-reader.yaml
+wget https://raw.githubusercontent.com/kubernetes/kubernetes/master/cluster/addons/metrics-server/metrics-apiservice.yaml
+wget https://raw.githubusercontent.com/kubernetes/kubernetes/master/cluster/addons/metrics-server/metrics-server-deployment.yaml
+wget https://raw.githubusercontent.com/kubernetes/kubernetes/master/cluster/addons/metrics-server/metrics-server-service.yaml
+wget https://raw.githubusercontent.com/kubernetes/kubernetes/master/cluster/addons/metrics-server/resource-reader.yaml
+
+
+cd metrics-server/
+kubectl create -f .
+
+kubectl get svc -n kube-system
+
+kubectl get pods -n kube-system
+
+# 安装 prometheus(监控报警系统)
+# 安装 prome
+```
+
+## Helm
+
+[helm_github](https://github.com/helm/helm)  需要go语言环境 [helm_home](https://helm.sh)
+
+```shell
+# 安装helm
+wget https://get.helm.sh/helm-v2.14.2-linux-amd64.tar.gz
+tar -xvf helm-v2.14.2-linux-amd64.tar.gz
+cd linux-amd64
+mv helm /usr/bin
+
+# 创建 chart 名称为myapp
+helm create myapp
+
+# 查看目录结构
+tree myapp/
+
+cd myapp
+# 编辑发布信息
+vim Chart.yaml
+apiVersion: v1
+appVersion: "1.0"
+description: A Helm chart for kubernetes
+name: myapp
+version: 0.1.0
+mantianer:
+  - name: QLST
+    email: qlst@qlst.top
+    url: http://qlst.top/
+    
+# 编辑配置文件
+vim values.yaml
+
+#　分析文件是否有错
+helm lint ../myapp
+
+cd ..
+# 打包
+helm package myapp/
+
+# 打开仓库服务
+helm serve # 监听8879
+
+helm search myapp
+
+# 部署服务
+helm install --name myapp3 local/myapp
+
+helm status myapp3
+
+# 清除服务,释放名字
+helm delete --purge myapp3
+```
+
+### 部署EFK
+
+```shell
+# 根据教程 下载,安装 elasticsearch https://hub.kubeapps.com/charts/stable/elasticsearch
+
+# 安装 fluentd
+编辑域名
+
+# 安装 kibana
 ```
 
 
